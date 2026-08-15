@@ -817,12 +817,13 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 Le dépôt met à disposition deux boîtes à outils de niveau professionnel développées sur-mesure :
 
-### 1. 🛡️ DSS Ultimate Security Scanner (`scan.py` & `c_scanner/`)
-Suite d'audit de sécurité réseau, OSINT et web sans dépendances externes (alternative moderne à **Nmap**, **Nikto**, **WhatWeb** et **SSLyze**) :
-- **Reconnaissance & OSINT** : Géolocalisation IP, ASN, FAI, Reverse DNS, détection de WAF & CMS.
-- **Scan de Ports & Versions** : Scan TCP & UDP (`-sU`) avec mesure de latence RTT par port et corrélation CVE/CVSS.
-- **Audit Web & SSL/TLS** : En-têtes OWASP, cookies, fichiers exposés (`.env`, `.git`), audit SPF/DMARC et certificats SSL.
-- **Dashboard Interactif** : Génération de rapports HTML dynamiques (avec lien cartographique OSM), XML compatible Nmap, JSON et Markdown.
+### 1. 🛡️ DSS Ultimate Security Scanner — D-Scan v4.0 ASM Edition (`scan.py` & `c_scanner/`)
+Plateforme d'Attack Surface Management (ASM) et d'audit sans dépendances externes :
+- **Reconnaissance & OSINT Avancé** : Surveillance passive **CT Logs** (`crt.sh`), géolocalisation IP & ASN, détection de WAF & CMS.
+- **Fuites Cloud & Secrets JS** : Détection de **Buckets Cloud publics** (AWS S3, GCP, Azure) et extraction de clés d'API dans les scripts JavaScript.
+- **Audit Web & API** : Introspection d'API **GraphQL**, dérive de pare-feu **IPv4 vs IPv6**, conformité email **MTA-STS / BIMI / SPF / DMARC**.
+- **Scan de Ports & Versions** : Scan TCP & UDP (`-sU`) avec calcul de latence RTT par port et corrélation CVE / CVSS.
+- **Reporting & Matrice MITRE** : Tableau de bord HTML interactif avec **score de sécurité dynamique, cartographie MITRE ATT&CK et lien OpenStreetMap**, XML compatible Nmap, JSON et Markdown.
 - **Guide complet** : [Consulter SCANNER_GUIDE.md](SCANNER_GUIDE.md).
 
 ### 2. ⚔️ HackerLab CTF Toolkit & Assistant IA (`hackerlab.py`)

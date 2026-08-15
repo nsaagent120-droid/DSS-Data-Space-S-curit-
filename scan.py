@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """
 =============================================================================
-  DSS Ultimate Security Scanner (D-Scan v3.0) — Suite Tout-en-Un d'Audit
+  DSS Ultimate Security Scanner (D-Scan v4.0 Enterprise / ASM Edition)
 =============================================================================
   Auteur      : DSS Security / Cybersecurity Mastery Roadmap
-  Description : Alternative ultra-puissante à Nmap, Nikto, SSLyze et WhatWeb :
+  Description : Plateforme tout-en-un d'Attack Surface Management (ASM) & Audit :
                 - Scan TCP & UDP multi-threadé avec timing T1-T5
                 - Détection de versions (-sV) et corrélation automatique CVE/CVSS
                 - Géolocalisation IP, ASN, FAI & Reverse DNS
                 - Détection de WAF (Cloudflare, AWS, Akamai, Imperva, ModSec...)
                 - Fingerprinting de CMS & Technologies Web (Wappalyzer-like)
-                - Audit DNS & Sécurité Email (SPF, DMARC, MX, NS)
-                - Inspection SSL/TLS, suites de chiffrement et découverte SAN
-                - Découverte d'hôtes (Ping sweep) & Traceroute TCP/IP
-                - Rapports avancés : Dashboard HTML interactif (avec carte OSM),
-                  XML compatible Nmap (-oX), JSON et Markdown.
+                - Surveillance Passive Certificate Transparency Logs (crt.sh)
+                - Détecteur de Fuites Cloud & Buckets (AWS S3, GCP, Azure Blob)
+                - Détection de Subdomain Takeover (CNAME orphelins)
+                - Extracteur de Clés & Secrets dans les fichiers JavaScript
+                - Détection & Introspection d'API GraphQL / REST
+                - Dérive Pare-feu Double-Stack IPv4 vs IPv6
+                - Audit Email Avancé (MTA-STS, TLS-RPT, BIMI, SPF, DMARC)
+                - Cartographie MITRE ATT&CK & Matrice de Risque
+                - Tableau de bord HTML interactif (Dark Mode, Carte OSM, MITRE)
   Usage       : python3 scan.py -t <cible> [options]
 =============================================================================
 """
@@ -51,10 +55,6 @@ class Colors:
     MAGENTA     = "\033[95m"
     CYAN        = "\033[96m"
     WHITE       = "\033[97m"
-    BG_RED      = "\033[41m"
-    BG_GREEN    = "\033[42m"
-    BG_BLUE     = "\033[44m"
-    BG_MAGENTA  = "\033[45m"
 
 def log_info(msg):
     print(f"[{Colors.CYAN}*{Colors.RESET}] {msg}")
@@ -69,9 +69,9 @@ def log_danger(msg):
     print(f"[{Colors.RED}-{Colors.RESET}] {msg}")
 
 def log_title(msg):
-    print(f"\n{Colors.BOLD}{Colors.MAGENTA}{'='*70}{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.MAGENTA}{'='*72}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.MAGENTA}  {msg}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.MAGENTA}{'='*70}{Colors.RESET}\n")
+    print(f"{Colors.BOLD}{Colors.MAGENTA}{'='*72}{Colors.RESET}\n")
 
 # =============================================================================
 # MODÈLES DE TIMING (NMAP TIMING TEMPLATES T1 - T5)
@@ -84,9 +84,6 @@ TIMING_PROFILES = {
     "T5": {"name": "Insane (Ultra-rapide)", "timeout": 0.35, "threads": 200, "delay": 0.0}
 }
 
-# =============================================================================
-# BASE DE DONNÉES DES PORTS & SERVICES CONNUS
-# =============================================================================
 TOP_20_PORTS = [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 993, 995, 1433, 1521, 3306, 3389, 5432, 8080, 8443]
 
 TOP_100_PORTS = [
@@ -101,76 +98,23 @@ TOP_100_PORTS = [
 UDP_COMMON_PORTS = [53, 67, 68, 69, 123, 137, 138, 161, 162, 500, 514, 520, 1194, 1900, 4500, 5060, 5353]
 
 SERVICES_MAP = {
-    21: "FTP (File Transfer)",
-    22: "SSH (Secure Shell)",
-    23: "Telnet (Non-chiffré)",
-    25: "SMTP (Mail Transfer)",
-    53: "DNS (Domain Name System)",
-    69: "TFTP",
-    80: "HTTP (World Wide Web)",
-    110: "POP3 (Post Office Protocol)",
-    111: "RPCBind",
-    123: "NTP (Network Time Protocol)",
-    135: "MSRPC (Microsoft RPC)",
-    137: "NetBIOS Name Service",
-    138: "NetBIOS Datagram",
-    139: "NetBIOS Session",
-    143: "IMAP (Mail Access)",
-    161: "SNMP (Simple Network Mgmt)",
-    389: "LDAP (Directory Service)",
-    443: "HTTPS (TLS/SSL Secure Web)",
-    445: "SMB / Microsoft-DS",
-    465: "SMTPS (SMTP over SSL)",
-    514: "Syslog",
-    587: "SMTP Submission",
-    636: "LDAPS (LDAP over SSL)",
-    873: "Rsync",
-    993: "IMAPS (IMAP over SSL)",
-    995: "POP3S (POP3 over SSL)",
-    1080: "SOCKS Proxy",
-    1194: "OpenVPN",
-    1433: "Microsoft SQL Server",
-    1521: "Oracle Database",
-    1900: "UPnP (SSDP Discovery)",
-    2049: "NFS (Network File System)",
-    2181: "Apache ZooKeeper",
-    2222: "SSH Alternatif",
-    2375: "Docker Daemon (Insecure)",
-    2376: "Docker Daemon (TLS)",
-    3000: "Node.js / React / Grafana Dev",
-    3306: "MySQL / MariaDB Database",
-    3389: "RDP (Remote Desktop Protocol)",
-    4000: "Hexo / Web Dev Server",
-    4444: "Metasploit / Selenium / Listener",
-    5000: "Flask / Docker Registry / UPnP",
-    5060: "SIP (VoIP)",
-    5353: "mDNS (Multicast DNS)",
-    5432: "PostgreSQL Database",
-    5672: "RabbitMQ AMQP",
-    5900: "VNC Remote Desktop",
-    5984: "CouchDB",
-    5985: "WinRM (HTTP)",
-    5986: "WinRM (HTTPS)",
-    6379: "Redis In-Memory Key-Value",
-    7001: "Oracle WebLogic",
-    8000: "HTTP Dev (Django/Python)",
-    8080: "HTTP Proxy / Tomcat / Spring",
-    8443: "HTTPS Alternatif / Plesk",
-    8888: "Jupyter Notebook / Web Admin",
-    9000: "PHP-FPM / SonarQube / MinIO",
-    9090: "Prometheus / Cockpit Web UI",
-    9092: "Apache Kafka",
-    9200: "Elasticsearch REST API",
-    9300: "Elasticsearch Cluster",
-    10000: "Webmin / Virtualmin",
-    11211: "Memcached Database",
-    15672: "RabbitMQ Management UI",
-    27017: "MongoDB NoSQL Database",
-    27018: "MongoDB Shard",
-    28017: "MongoDB Web Status"
+    21: "FTP (File Transfer)", 22: "SSH (Secure Shell)", 23: "Telnet", 25: "SMTP", 53: "DNS",
+    69: "TFTP", 80: "HTTP (Web)", 110: "POP3", 111: "RPCBind", 123: "NTP", 135: "MSRPC",
+    137: "NetBIOS Name", 138: "NetBIOS Dgm", 139: "NetBIOS Sess", 143: "IMAP", 161: "SNMP",
+    389: "LDAP", 443: "HTTPS (TLS)", 445: "SMB / MS-DS", 465: "SMTPS", 514: "Syslog",
+    587: "SMTP Submission", 636: "LDAPS", 873: "Rsync", 993: "IMAPS", 995: "POP3S",
+    1080: "SOCKS Proxy", 1194: "OpenVPN", 1433: "MSSQL Server", 1521: "Oracle DB",
+    1900: "UPnP (SSDP)", 2049: "NFS", 2181: "ZooKeeper", 2222: "SSH-Alt", 2375: "Docker HTTP",
+    2376: "Docker TLS", 3000: "Node / Dev Web", 3306: "MySQL / MariaDB", 3389: "RDP",
+    4000: "Hexo / Dev Web", 4444: "Metasploit / Listener", 5000: "Flask / Registry",
+    5060: "SIP (VoIP)", 5353: "mDNS", 5432: "PostgreSQL", 5672: "RabbitMQ AMQP",
+    5900: "VNC Remote", 5984: "CouchDB", 5985: "WinRM HTTP", 5986: "WinRM HTTPS",
+    6379: "Redis Key-Value", 7001: "WebLogic", 8000: "HTTP Dev", 8080: "HTTP Proxy / Tomcat",
+    8443: "HTTPS-Alt", 8888: "Jupyter / Admin", 9000: "PHP-FPM / Sonar", 9090: "Prometheus / Cockpit",
+    9092: "Apache Kafka", 9200: "Elasticsearch", 9300: "Elasticsearch Cluster", 10000: "Webmin",
+    11211: "Memcached", 15672: "RabbitMQ UI", 27017: "MongoDB", 27018: "MongoDB Shard"
 }
 
-# Base de connaissances CVE
 CVE_KNOWLEDGE_BASE = [
     {
         "pattern": r"OpenSSH_([1-6]\.|7\.[0-6])",
@@ -179,6 +123,7 @@ CVE_KNOWLEDGE_BASE = [
         "title": "Version OpenSSH obsolète vulnérable à la fuite de clés ou énumération d'utilisateurs",
         "severity": "HIGH",
         "cvss": 7.5,
+        "mitre": "T1190",
         "recommendation": "Mettre à jour vers OpenSSH >= 8.9+ et désactiver l'authentification par mot de passe."
     },
     {
@@ -188,6 +133,7 @@ CVE_KNOWLEDGE_BASE = [
         "title": "Apache HTTPD vulnérable aux traversées de répertoires / RCE",
         "severity": "CRITICAL",
         "cvss": 9.8,
+        "mitre": "T1190",
         "recommendation": "Mettre à jour Apache HTTPD vers la dernière version stable (>= 2.4.58+)."
     },
     {
@@ -197,6 +143,7 @@ CVE_KNOWLEDGE_BASE = [
         "title": "Version Nginx vulnérable aux dépassements d'entiers dans le resolver DNS",
         "severity": "HIGH",
         "cvss": 7.7,
+        "mitre": "T1190",
         "recommendation": "Mettre à jour Nginx vers la version stable récente (>= 1.24+)."
     },
     {
@@ -206,25 +153,8 @@ CVE_KNOWLEDGE_BASE = [
         "title": "Version PHP obsolète et en fin de vie (End of Life)",
         "severity": "HIGH",
         "cvss": 8.1,
+        "mitre": "T1190",
         "recommendation": "Migrer immédiatement vers PHP 8.1, 8.2 ou 8.3 supporté."
-    },
-    {
-        "pattern": r"vsftpd 2\.3\.4",
-        "service": "vsftpd",
-        "cve": "CVE-2011-2523",
-        "title": "vsftpd 2.3.4 Backdoor Smiley Face",
-        "severity": "CRITICAL",
-        "cvss": 9.8,
-        "recommendation": "Supprimer vsftpd 2.3.4 et installer vsftpd >= 3.0.5."
-    },
-    {
-        "pattern": r"ProFTPD 1\.3\.[35]",
-        "service": "ProFTPD",
-        "cve": "CVE-2015-3306",
-        "title": "ProFTPD mod_copy Arbitrary File Copy & RCE",
-        "severity": "CRITICAL",
-        "cvss": 9.8,
-        "recommendation": "Mettre à jour ProFTPD vers la dernière version stable."
     },
     {
         "pattern": r"Redis.*([1-5]\.)",
@@ -233,25 +163,371 @@ CVE_KNOWLEDGE_BASE = [
         "title": "Redis Lua Sandbox Escape & Remote Code Execution",
         "severity": "CRITICAL",
         "cvss": 10.0,
+        "mitre": "T1190",
         "recommendation": "Mettre à jour Redis vers >= 6.2.7 ou 7.0+, lier sur 127.0.0.1 et exiger un mot de passe fort."
-    },
-    {
-        "pattern": r"Samba 3\.|Samba 4\.[0-9]\.",
-        "service": "Samba",
-        "cve": "CVE-2017-7494 (SambaCry)",
-        "title": "SambaCry Remote Code Execution via shared library upload",
-        "severity": "CRITICAL",
-        "cvss": 9.8,
-        "recommendation": "Mettre à jour Samba vers une version maintenue."
     }
 ]
 
 # =============================================================================
-# MODULE 1 : GÉOLOCALISATION IP, ASN & RENSEIGNEMENT RÉSEAU (OSINT)
+# MODULE 1 : RECONNAISSANCE PASSIVE VIA CT LOGS (CERTIFICATE TRANSPARENCY)
+# =============================================================================
+class CTLogsInspector:
+    """Interroge les journaux mondiaux de transparence des certificats pour cartographier les sous-domaines."""
+
+    @staticmethod
+    def query(domain):
+        log_title(f"SURVEILLANCE PASSIVE CERTIFICATE TRANSPARENCY (CT LOGS) : {domain}")
+        clean_domain = domain.strip().replace("http://", "").replace("https://", "").split("/")[0]
+        discovered_subs = set()
+        
+        url = f"https://crt.sh/?q=%.{clean_domain}&output=json"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (DSS-CTLogs-Scanner/4.0)"})
+            with urllib.request.urlopen(req, timeout=5.0) as res:
+                data = json.loads(res.read().decode(errors="ignore"))
+                for entry in data:
+                    name_val = entry.get("name_value", "")
+                    for sub in name_val.split("\n"):
+                        sub = sub.strip().lower()
+                        if sub and "*" not in sub and sub.endswith(clean_domain):
+                            discovered_subs.add(sub)
+        except Exception:
+            pass
+
+        subs_list = sorted(list(discovered_subs))
+        if subs_list:
+            log_success(f"Sous-domaines découverts furtivement via CT Logs ({len(subs_list)}) :")
+            for s in subs_list[:12]:
+                print(f"  {Colors.GREEN}↳{Colors.RESET} {Colors.BOLD}{s}{Colors.RESET}")
+            if len(subs_list) > 12:
+                print(f"  {Colors.DIM}... ({len(subs_list) - 12} autres sous-domaines omis){Colors.RESET}")
+        else:
+            log_info("Aucun historique CT Logs disponible ou API temporairement silencieuse.")
+
+        return subs_list
+
+# =============================================================================
+# MODULE 2 : DÉTECTEUR DE FUITES CLOUD & BUCKETS (AWS S3, GCP, AZURE BLOB)
+# =============================================================================
+class CloudBucketHunter:
+    """Recherche de compartiments Cloud publics mal configurés (AWS S3, Google Cloud Storage, Azure Blob)."""
+
+    PERMUTATIONS = [
+        "", "-backup", "-data", "-assets", "-staging", "-dev", "-logs", "-public",
+        "-media", "-static", "-storage", "-files", "-prod", "-internal"
+    ]
+
+    @classmethod
+    def hunt(cls, domain, timeout=2.5):
+        log_title(f"CHASSE AUX BUCKETS CLOUD ORPHELINS / EXPOSÉS : {domain}")
+        base_name = domain.split(".")[0].lower()
+        findings = []
+
+        providers = [
+            {"provider": "AWS S3", "template": "https://{name}.s3.amazonaws.com"},
+            {"provider": "Google Cloud Storage", "template": "https://storage.googleapis.com/{name}"},
+            {"provider": "Azure Blob Storage", "template": "https://{name}.blob.core.windows.net"}
+        ]
+
+        def check_bucket(url, p_name, b_name):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "DSS-CloudHunter/4.0"})
+                with urllib.request.urlopen(req, timeout=timeout) as res:
+                    if res.status == 200:
+                        return {"provider": p_name, "bucket": b_name, "url": url, "status": "OUVERT / PUBLIC", "severity": "CRITICAL"}
+            except urllib.error.HTTPError as e:
+                if e.code == 403:
+                    return {"provider": p_name, "bucket": b_name, "url": url, "status": "EXISTANT (Accès Restreint)", "severity": "INFO"}
+            except Exception:
+                pass
+            return None
+
+        tasks = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+            for p in providers:
+                for perm in cls.PERMUTATIONS:
+                    b_name = f"{base_name}{perm}"
+                    b_url = p["template"].format(name=b_name)
+                    tasks.append(executor.submit(check_bucket, b_url, p["provider"], b_name))
+
+            for f in concurrent.futures.as_completed(tasks):
+                res = f.result()
+                if res:
+                    findings.append(res)
+                    col = Colors.RED if res["severity"] == "CRITICAL" else Colors.CYAN
+                    print(f"  [{col}{res['status']}{Colors.RESET}] {res['provider']} : {Colors.BOLD}{res['url']}{Colors.RESET}")
+
+        if not findings:
+            log_success("Aucun bucket Cloud public standard exposé trouvé.")
+        return findings
+
+# =============================================================================
+# MODULE 3 : DÉTECTEUR DE SUBDOMAIN TAKEOVER (CNAME ORPHELINS)
+# =============================================================================
+class SubdomainTakeoverScanner:
+    """Détecte les sous-domaines pointant vers des services SaaS / Cloud supprimés."""
+
+    FINGERPRINTS = [
+        {"service": "GitHub Pages", "cname": "github.io", "pattern": "There isn't a GitHub Pages site here"},
+        {"service": "Heroku", "cname": "herokucdn.com", "pattern": "No such app"},
+        {"service": "AWS S3", "cname": "s3.amazonaws.com", "pattern": "NoSuchBucket"},
+        {"service": "Shopify", "cname": "myshopify.com", "pattern": "Sorry, this shop is currently unavailable"},
+        {"service": "Zendesk", "cname": "zendesk.com", "pattern": "Help Center Closed"},
+        {"service": "Fastly", "cname": "fastly.net", "pattern": "Fastly error: unknown domain"},
+        {"service": "Surge.sh", "cname": "surge.sh", "pattern": "project not found"},
+        {"service": "Ghost", "cname": "ghost.io", "pattern": "The thing you were looking for is no longer here"}
+    ]
+
+    @classmethod
+    def audit_subdomain(cls, sub, timeout=3.0):
+        try:
+            req = urllib.request.Request(f"http://{sub}", headers={"User-Agent": "DSS-TakeoverScanner/4.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as res:
+                body = res.read(4096).decode(errors="ignore")
+                for fp in cls.FINGERPRINTS:
+                    if fp["pattern"] in body:
+                        return {"subdomain": sub, "service": fp["service"], "vulnerable": True, "evidence": fp["pattern"]}
+        except urllib.error.HTTPError as e:
+            body = e.read(4096).decode(errors="ignore")
+            for fp in cls.FINGERPRINTS:
+                if fp["pattern"] in body:
+                    return {"subdomain": sub, "service": fp["service"], "vulnerable": True, "evidence": fp["pattern"]}
+        except Exception:
+            pass
+        return None
+
+# =============================================================================
+# MODULE 4 : SCANNER DE CLÉS & SECRETS JAVASCRIPT
+# =============================================================================
+class JSSecretScanner:
+    """Scanne les fichiers JavaScript front-end pour extraire les clés d'API et tokens hardcodés."""
+
+    SECRET_REGEXES = [
+        {"name": "Google API Key", "regex": r"AIzaSy[A-Za-z0-9_-]{33}", "severity": "HIGH"},
+        {"name": "AWS Access Key", "regex": r"AKIA[0-9A-Z]{16}", "severity": "CRITICAL"},
+        {"name": "Stripe API Key", "regex": r"(?:sk|pk)_(?:live|test)_[0-9a-zA-Z]{24,99}", "severity": "CRITICAL"},
+        {"name": "GitHub Personal Token", "regex": r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36}", "severity": "CRITICAL"},
+        {"name": "Slack Webhook URL", "regex": r"https://hooks\.slack\.com/services/T[a-zA-Z0-9_]+/B[a-zA-Z0-9_]+/[a-zA-Z0-9_]+", "severity": "HIGH"},
+        {"name": "Private Key RSA/SSH", "regex": r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", "severity": "CRITICAL"},
+        {"name": "Generic Auth Token / Secret", "regex": r"(?:api_key|apikey|secret_key|app_secret|auth_token)\s*[:=]\s*['\"]([a-zA-Z0-9_\-]{16,64})['\"]", "severity": "MEDIUM"}
+    ]
+
+    @classmethod
+    def scan_url(cls, base_url, timeout=3.5):
+        log_title(f"SCAN STATIQUE DE CLÉS & SECRETS JAVASCRIPT : {base_url}")
+        found_secrets = []
+        js_urls = []
+
+        try:
+            req = urllib.request.Request(base_url, headers={"User-Agent": "Mozilla/5.0 (DSS-SecretScanner/4.0)"})
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as res:
+                html = res.read().decode(errors="ignore")
+
+            for m in re.finditer(r'<script[^>]+src=["\']([^"\']+)["\']', html, re.IGNORECASE):
+                src = m.group(1)
+                full_js_url = urllib.parse.urljoin(base_url, src)
+                js_urls.append(full_js_url)
+
+            for rule in cls.SECRET_REGEXES:
+                for match in re.finditer(rule["regex"], html):
+                    val = match.group(0)
+                    found_secrets.append({"name": rule["name"], "secret": val[:30] + "...", "severity": rule["severity"], "source": "HTML Inline"})
+
+        except Exception:
+            pass
+
+        def scan_js(url):
+            local_finds = []
+            try:
+                r = urllib.request.Request(url, headers={"User-Agent": "DSS-SecretScanner/4.0"})
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with urllib.request.urlopen(r, timeout=timeout, context=ctx) as resp:
+                    js_code = resp.read().decode(errors="ignore")
+                    for rule in cls.SECRET_REGEXES:
+                        for match in re.finditer(rule["regex"], js_code):
+                            val = match.group(0)
+                            local_finds.append({
+                                "name": rule["name"],
+                                "secret": val[:35] + ("..." if len(val) > 35 else ""),
+                                "severity": rule["severity"],
+                                "source": url
+                            })
+            except Exception:
+                pass
+            return local_finds
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(scan_js, js_urls[:10]))
+            for rlist in results:
+                found_secrets.extend(rlist)
+
+        if found_secrets:
+            for s in found_secrets:
+                col = Colors.RED if s["severity"] == "CRITICAL" else Colors.YELLOW
+                log_danger(f"[{col}{s['severity']}{Colors.RESET}] {Colors.BOLD}{s['name']}{Colors.RESET} : `{s['secret']}` (dans {s['source']})")
+        else:
+            log_success("Aucun token ou clé d'API exposé détecté dans les scripts JavaScript.")
+
+        return found_secrets
+
+# =============================================================================
+# MODULE 5 : DÉTECTION & INTROSPECTION GRAPHQL
+# =============================================================================
+class GraphQLAuditor:
+    """Détecte les points d'entrée GraphQL et teste l'activation de l'introspection."""
+
+    ENDPOINTS = ["/graphql", "/graphiql", "/api/graphql", "/v1/graphql", "/api/v1/graphql"]
+
+    @classmethod
+    def audit(cls, base_url, timeout=3.0):
+        log_title(f"AUDIT D'API GRAPHQL & INTROSPECTION : {base_url}")
+        findings = {"detected": False, "endpoint": None, "introspection_enabled": False, "types": []}
+
+        intro_query = json.dumps({"query": "{ __schema { types { name kind } } }"}).encode()
+
+        for ep in cls.ENDPOINTS:
+            target = base_url.rstrip("/") + ep
+            try:
+                req = urllib.request.Request(
+                    target,
+                    data=intro_query,
+                    headers={"Content-Type": "application/json", "User-Agent": "DSS-GraphQLAuditor/4.0"}
+                )
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as res:
+                    if res.status == 200:
+                        raw = json.loads(res.read().decode(errors="ignore"))
+                        findings["detected"] = True
+                        findings["endpoint"] = target
+                        if "data" in raw and "__schema" in raw["data"]:
+                            findings["introspection_enabled"] = True
+                            types_list = [t["name"] for t in raw["data"]["__schema"].get("types", []) if not t["name"].startswith("__")]
+                            findings["types"] = types_list[:15]
+                            log_danger(f"Introspection GraphQL ACTIVÉE sur : {Colors.BOLD}{target}{Colors.RESET}")
+                            log_info(f"Schéma découvert ({len(types_list)} types) : {', '.join(types_list[:8])}...")
+                            break
+                        else:
+                            log_warning(f"Endpoint GraphQL détecté sur {target} (Introspection désactivée).")
+                            break
+            except Exception:
+                pass
+
+        if not findings["detected"]:
+            log_success("Aucun endpoint GraphQL public standard détecté.")
+        return findings
+
+# =============================================================================
+# MODULE 6 : DÉRIVE DE PARE-FEU IPV4 VS IPV6 (DOUBLE-STACK DRIFT)
+# =============================================================================
+class IPv6DriftScanner:
+    """Compare l'exposition des ports sur IPv4 vs IPv6 pour détecter les contournements de pare-feu."""
+
+    @staticmethod
+    def audit(domain, ports=[22, 80, 443, 3306, 8080], timeout=1.0):
+        log_title(f"ANALYSE DE DÉRIVE PARE-FEU DOUBLE-STACK IPV4 VS IPV6 : {domain}")
+        report = {"ipv4": None, "ipv6": None, "ipv4_open": [], "ipv6_open": [], "drift_detected": False}
+
+        try:
+            report["ipv4"] = socket.getaddrinfo(domain, None, socket.AF_INET)[0][4][0]
+        except Exception:
+            pass
+
+        try:
+            report["ipv6"] = socket.getaddrinfo(domain, None, socket.AF_INET6)[0][4][0]
+        except Exception:
+            pass
+
+        if not report["ipv6"]:
+            log_info("Aucun enregistrement IPv6 (AAAA) configuré sur ce domaine.")
+            return report
+
+        log_info(f"IPv4 : {Colors.CYAN}{report['ipv4']}{Colors.RESET} | IPv6 : {Colors.CYAN}{report['ipv6']}{Colors.RESET}")
+
+        for p in ports:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(timeout)
+                if s.connect_ex((report["ipv4"], p)) == 0:
+                    report["ipv4_open"].append(p)
+                s.close()
+            except Exception:
+                pass
+
+        for p in ports:
+            try:
+                s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                s.settimeout(timeout)
+                if s.connect_ex((report["ipv6"], p)) == 0:
+                    report["ipv6_open"].append(p)
+                s.close()
+            except Exception:
+                pass
+
+        ipv6_only = set(report["ipv6_open"]) - set(report["ipv4_open"])
+        if ipv6_only:
+            report["drift_detected"] = True
+            log_danger(f"DÉRIVE DE PARE-FEU DÉTECTÉE : Ports ouverts sur IPv6 mais bloqués sur IPv4 : {Colors.RED}{list(ipv6_only)}{Colors.RESET}")
+        else:
+            log_success("Règles de pare-feu cohérentes entre IPv4 et IPv6.")
+
+        return report
+
+# =============================================================================
+# MODULE 7 : AUDIT EMAIL AVANCÉ (MTA-STS, TLS-RPT, BIMI, SPF, DMARC)
+# =============================================================================
+class AdvancedEmailSecurity:
+    """Vérifie l'ensemble de la chaîne de confiance de messagerie moderne (MTA-STS, TLS-RPT, BIMI)."""
+
+    @staticmethod
+    def audit(domain):
+        log_title(f"AUDIT DE SÉCURITÉ EMAIL AVANCÉ (MTA-STS, TLS-RPT, BIMI) : {domain}")
+        results = {
+            "mta_sts": {"configured": False, "mode": "None"},
+            "tls_rpt": {"configured": False},
+            "bimi": {"configured": False}
+        }
+
+        def query_txt(qname):
+            url = f"https://cloudflare-dns.com/dns-query?name={qname}&type=TXT"
+            try:
+                req = urllib.request.Request(url, headers={"Accept": "application/dns-json", "User-Agent": "DSS-EmailAuditor/4.0"})
+                with urllib.request.urlopen(req, timeout=3.0) as res:
+                    data = json.loads(res.read().decode())
+                    return [a["data"].strip('"') for a in data.get("Answer", []) if "data" in a]
+            except Exception:
+                return []
+
+        mta_records = query_txt(f"_mta-sts.{domain}")
+        for r in mta_records:
+            if r.startswith("v=STSv1"):
+                results["mta_sts"]["configured"] = True
+                log_success(f"MTA-STS DNS : {Colors.GREEN}{r}{Colors.RESET}")
+
+        tls_rpt_records = query_txt(f"_smtp._tls.{domain}")
+        for r in tls_rpt_records:
+            if r.startswith("v=TLSRPTv1"):
+                results["tls_rpt"]["configured"] = True
+                log_success(f"TLS-RPT DNS : {Colors.GREEN}{r}{Colors.RESET}")
+
+        bimi_records = query_txt(f"default._bimi.{domain}")
+        for r in bimi_records:
+            if r.startswith("v=BIMI1"):
+                results["bimi"]["configured"] = True
+                log_success(f"BIMI Brand Record : {Colors.GREEN}{r}{Colors.RESET}")
+
+        return results
+
+# =============================================================================
+# MODULE 8 : GÉOLOCALISATION IP & WAF & STACK
 # =============================================================================
 class IPGeolocation:
-    """Géolocalisation IP, résolution ASN, Fournisseur d'accès (FAI) et métadonnées géographiques."""
-
     @staticmethod
     def is_private_ip(ip_str):
         try:
@@ -262,100 +538,63 @@ class IPGeolocation:
 
     @classmethod
     def lookup(cls, target_ip):
-        log_title(f"GÉOLOCALISATION IP & RENSEIGNEMENT RÉSEAU : {target_ip}")
+        log_title(f"GÉOLOCALISATION IP & OSINT : {target_ip}")
         data = {
-            "ip": target_ip,
-            "country": "Inconnu",
-            "country_code": "N/A",
-            "region": "N/A",
-            "city": "Inconnu",
-            "postal": "N/A",
-            "latitude": 0.0,
-            "longitude": 0.0,
-            "timezone": "N/A",
-            "isp": "Inconnu",
-            "asn": "N/A",
-            "org": "Inconnu",
-            "reverse_dns": "N/A",
-            "is_private": False,
-            "status": "success"
+            "ip": target_ip, "country": "Inconnu", "country_code": "N/A", "region": "N/A",
+            "city": "Inconnu", "latitude": 0.0, "longitude": 0.0, "timezone": "N/A",
+            "isp": "Inconnu", "asn": "N/A", "reverse_dns": "N/A", "is_private": False
         }
 
-        # Reverse DNS lookup
         try:
-            rdns = socket.gethostbyaddr(target_ip)[0]
-            data["reverse_dns"] = rdns
+            data["reverse_dns"] = socket.gethostbyaddr(target_ip)[0]
         except Exception:
-            data["reverse_dns"] = "Non configuré / Timeout"
+            data["reverse_dns"] = "Non configuré"
 
-        # Vérification IP privée / RFC 1918
         if cls.is_private_ip(target_ip):
             data["is_private"] = True
             data["country"] = "Réseau Local / Privé (RFC 1918)"
             data["city"] = "LAN / Intranet"
             data["isp"] = "Réseau Privé Interne"
-            data["org"] = "Réseau Privé Interne"
-            log_info(f"Adresse IP privée / locale détectée : {Colors.YELLOW}{target_ip}{Colors.RESET}")
-            log_info(f"Reverse DNS : {Colors.CYAN}{data['reverse_dns']}{Colors.RESET}")
+            log_info(f"IP Privée : {Colors.YELLOW}{target_ip}{Colors.RESET} (Reverse DNS: {data['reverse_dns']})")
             return data
 
-        # Interrogation des services d'information géographique (multi-fournisseurs)
         endpoints = [
-            f"http://ip-api.com/json/{target_ip}?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as",
-            f"https://freeipapi.com/api/json/{target_ip}",
-            f"https://ipwhois.app/json/{target_ip}"
+            f"http://ip-api.com/json/{target_ip}?fields=status,country,countryCode,regionName,city,lat,lon,timezone,isp,as",
+            f"https://freeipapi.com/api/json/{target_ip}"
         ]
 
         for url in endpoints:
             try:
-                req = urllib.request.Request(url, headers={"User-Agent": "DSS-Security-Geolocation/3.0"})
-                with urllib.request.urlopen(req, timeout=3.5) as res:
+                req = urllib.request.Request(url, headers={"User-Agent": "DSS-Geolocation/4.0"})
+                with urllib.request.urlopen(req, timeout=3.0) as res:
                     raw = json.loads(res.read().decode())
                     if raw.get("status") == "success" or "country" in raw or "countryName" in raw:
                         data["country"] = raw.get("country", raw.get("countryName", data["country"]))
                         data["country_code"] = raw.get("countryCode", raw.get("country_code", data["country_code"]))
                         data["region"] = raw.get("regionName", raw.get("region", data["region"]))
                         data["city"] = raw.get("city", raw.get("cityName", data["city"]))
-                        data["postal"] = raw.get("zip", raw.get("zipCode", data["postal"]))
                         data["latitude"] = raw.get("lat", raw.get("latitude", 0.0))
                         data["longitude"] = raw.get("lon", raw.get("longitude", 0.0))
-                        data["timezone"] = raw.get("timezone", raw.get("timeZone", data["timezone"]))
-                        data["isp"] = raw.get("isp", raw.get("ispName", data["isp"]))
-                        data["org"] = raw.get("org", raw.get("organisation", data["org"]))
-                        data["asn"] = raw.get("as", raw.get("asn", data["asn"]))
+                        data["timezone"] = raw.get("timezone", data["timezone"])
+                        data["isp"] = raw.get("isp", data["isp"])
+                        data["asn"] = raw.get("as", data["asn"])
                         break
             except Exception:
                 continue
 
-        # Affichage clair et structuré
-        log_success(f"Pays : {Colors.BOLD}{data['country']}{Colors.RESET} ({data['country_code']}) | Ville : {Colors.BOLD}{data['city']}{Colors.RESET} ({data['region']})")
-        log_info(f"Coordonnées GPS : {Colors.CYAN}{data['latitude']}, {data['longitude']}{Colors.RESET} | Fuseau : {data['timezone']}")
-        log_info(f"Fournisseur (FAI) : {Colors.BOLD}{data['isp']}{Colors.RESET} | Org : {data['org']}")
-        log_info(f"Système Autonome (ASN) : {Colors.YELLOW}{data['asn']}{Colors.RESET}")
-        log_info(f"Reverse DNS (PTR) : {Colors.CYAN}{data['reverse_dns']}{Colors.RESET}")
-
+        log_success(f"Pays : {Colors.BOLD}{data['country']}{Colors.RESET} ({data['country_code']}) | Ville : {Colors.BOLD}{data['city']}{Colors.RESET}")
+        log_info(f"FAI : {Colors.BOLD}{data['isp']}{Colors.RESET} | ASN : {Colors.YELLOW}{data['asn']}{Colors.RESET}")
         return data
 
-# =============================================================================
-# MODULE 2 : DÉTECTION DE WAF (WEB APPLICATION FIREWALL) & CDN
-# =============================================================================
 class WAFDetector:
-    """Détecteur d'empreintes de WAF (Cloudflare, AWS WAF, Akamai, Imperva, ModSecurity...)."""
-
     WAF_SIGNATURES = [
         {"name": "Cloudflare", "header": "server", "pattern": r"cloudflare", "desc": "CDN / WAF Cloudflare"},
-        {"name": "Cloudflare", "header": "cf-ray", "pattern": r".+", "desc": "En-tête de routage Cloudflare Ray ID"},
+        {"name": "Cloudflare", "header": "cf-ray", "pattern": r".+", "desc": "Cloudflare Ray ID"},
         {"name": "AWS CloudFront / WAF", "header": "server", "pattern": r"CloudFront", "desc": "Amazon CloudFront CDN / AWS WAF"},
-        {"name": "AWS CloudFront", "header": "x-amz-cf-id", "pattern": r".+", "desc": "Amazon CloudFront ID"},
         {"name": "Akamai GHost / WAF", "header": "server", "pattern": r"AkamaiGHost", "desc": "Akamai Global Host Edge"},
-        {"name": "Akamai", "header": "x-akamai-transformed", "pattern": r".+", "desc": "Akamai Edge Header"},
         {"name": "Imperva / Incapsula", "header": "x-iinfo", "pattern": r".+", "desc": "Imperva Incapsula WAF"},
-        {"name": "Imperva / Incapsula", "header": "x-cdn", "pattern": r"Incapsula", "desc": "Imperva Incapsula CDN"},
         {"name": "Fastly CDN", "header": "x-fastly-request-id", "pattern": r".+", "desc": "Fastly Edge Cloud"},
         {"name": "Sucuri CloudProxy", "header": "x-sucuri-id", "pattern": r".+", "desc": "Sucuri WebSite Firewall"},
-        {"name": "F5 BIG-IP ASM", "header": "set-cookie", "pattern": r"BIGipServer|TS[0-9a-f]{8}", "desc": "F5 BIG-IP Application Security Manager"},
-        {"name": "LiteSpeed Web Server", "header": "server", "pattern": r"LiteSpeed|OpenLiteSpeed", "desc": "LiteSpeed avec protection anti-DDoS"},
-        {"name": "Varnish Cache", "header": "x-varnish", "pattern": r".+", "desc": "Accélérateur HTTP Varnish Cache"},
         {"name": "ModSecurity / OWASP CRS", "header": "server", "pattern": r"mod_security|NOYB", "desc": "Moteur WAF open-source ModSecurity"}
     ]
 
@@ -363,7 +602,7 @@ class WAFDetector:
     def detect(cls, url, timeout=3.0):
         detected = []
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "DSS-WAFDetector/3.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "DSS-WAFDetector/4.0"})
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
@@ -377,41 +616,30 @@ class WAFDetector:
         for sig in cls.WAF_SIGNATURES:
             h_val = headers.get(sig["header"], "")
             if h_val and re.search(sig["pattern"], h_val, re.IGNORECASE):
-                entry = {"name": sig["name"], "header": sig["header"], "value": h_val, "description": sig["desc"]}
+                entry = {"name": sig["name"], "header": sig["header"], "description": sig["desc"]}
                 if not any(d["name"] == sig["name"] for d in detected):
                     detected.append(entry)
 
         if detected:
-            log_title(f"DÉTECTION DE PARE-FEU APPLICATIF (WAF / CDN) : {url}")
+            log_title(f"PARE-FEU APPLICATIF (WAF / CDN) ACTIF : {url}")
             for d in detected:
-                log_success(f"WAF / Protection active identifiée : {Colors.BOLD}{Colors.YELLOW}{d['name']}{Colors.RESET} ({d['description']})")
+                log_success(f"WAF Identifié : {Colors.BOLD}{Colors.YELLOW}{d['name']}{Colors.RESET} ({d['description']})")
         return detected
 
-# =============================================================================
-# MODULE 3 : DÉTECTION DE TECHNOLOGIES WEB & CMS (WAPPALYZER-LIKE)
-# =============================================================================
 class TechDetector:
-    """Identification de CMS, frameworks frontend/backend, serveurs et librairies."""
-
     TECH_RULES = [
         {"name": "WordPress", "type": "CMS", "pattern": r"wp-content|wp-includes|wp-json", "header": None},
         {"name": "Joomla!", "type": "CMS", "pattern": r"/media/jui/|/templates/|Joomla!", "header": None},
         {"name": "Drupal", "type": "CMS", "pattern": r"Drupal\.settings|sites/all/|drupal\.js", "header": None},
         {"name": "Shopify", "type": "E-Commerce", "pattern": r"cdn\.shopify\.com", "header": None},
-        {"name": "Prestashop", "type": "E-Commerce", "pattern": r"prestashop|presta", "header": None},
         {"name": "Laravel", "type": "PHP Framework", "pattern": None, "header": "set-cookie", "h_pattern": r"laravel_session|XSRF-TOKEN"},
         {"name": "Django", "type": "Python Framework", "pattern": r"csrfmiddlewaretoken", "header": "set-cookie", "h_pattern": r"csrftoken"},
         {"name": "Spring Boot", "type": "Java Framework", "pattern": r"/actuator/|whitelabel error page", "header": None},
         {"name": "Express.js", "type": "Node.js Framework", "pattern": None, "header": "x-powered-by", "h_pattern": r"Express"},
-        {"name": "Next.js", "type": "React Framework", "pattern": r"/_next/static|__NEXT_DATA__", "header": None},
-        {"name": "React", "type": "UI Library", "pattern": r"data-reactroot|react-dom|react\.production\.min\.js", "header": None},
-        {"name": "Vue.js", "type": "UI Library", "pattern": r"data-v-[a-f0-9]|vue\.min\.js|__vue__", "header": None},
-        {"name": "Bootstrap", "type": "CSS Framework", "pattern": r"bootstrap(\.min)?\.(css|js)", "header": None},
-        {"name": "jQuery", "type": "JS Library", "pattern": r"jquery(\.min)?\.js|jQuery\s*v[0-9\.]+", "header": None},
-        {"name": "Tailwind CSS", "type": "CSS Framework", "pattern": r"tailwindcss|font-sans antialiased", "header": None},
-        {"name": "Apache HTTP Server", "type": "Web Server", "pattern": None, "header": "server", "h_pattern": r"Apache"},
-        {"name": "Nginx", "type": "Web Server", "pattern": None, "header": "server", "h_pattern": r"nginx"},
-        {"name": "Microsoft IIS", "type": "Web Server", "pattern": None, "header": "server", "h_pattern": r"Microsoft-IIS"}
+        {"name": "React", "type": "UI Library", "pattern": r"data-reactroot|react-dom", "header": None},
+        {"name": "Vue.js", "type": "UI Library", "pattern": r"data-v-[a-f0-9]|vue\.min\.js", "header": None},
+        {"name": "Apache HTTP", "type": "Web Server", "pattern": None, "header": "server", "h_pattern": r"Apache"},
+        {"name": "Nginx", "type": "Web Server", "pattern": None, "header": "server", "h_pattern": r"nginx"}
     ]
 
     @classmethod
@@ -420,7 +648,7 @@ class TechDetector:
         body = ""
         headers = {}
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (DSS-TechFingerprint/3.0)"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (DSS-TechFingerprint/4.0)"})
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
@@ -434,12 +662,10 @@ class TechDetector:
 
         for r in cls.TECH_RULES:
             matched = False
-            # Test dans les en-têtes
             if r.get("header") and r.get("h_pattern"):
                 h_val = headers.get(r["header"], "")
                 if h_val and re.search(r["h_pattern"], h_val, re.IGNORECASE):
                     matched = True
-            # Test dans le code source HTML
             if not matched and r.get("pattern") and body:
                 if re.search(r["pattern"], body, re.IGNORECASE):
                     matched = True
@@ -448,474 +674,57 @@ class TechDetector:
                 detected.append({"name": r["name"], "type": r["type"]})
 
         if detected:
-            log_title(f"EMPREINTES TECHNOLOGIQUES & CMS DÉTECTÉS : {url}")
+            log_title(f"EMPREINTES TECHNOLOGIQUES & CMS : {url}")
             for t in detected:
-                log_success(f"Stack identifiée : {Colors.BOLD}{t['name']}{Colors.RESET} [{Colors.CYAN}{t['type']}{Colors.RESET}]")
+                log_success(f"Stack : {Colors.BOLD}{t['name']}{Colors.RESET} [{Colors.CYAN}{t['type']}{Colors.RESET}]")
         return detected
 
 # =============================================================================
-# MODULE 4 : AUDIT DNS & SÉCURITÉ EMAIL (SPF, DMARC, MX, NS)
+# MODULE 9 : MAPPAGE MATRICE MITRE ATT&CK
 # =============================================================================
-class DNSAuditor:
-    """Analyse de la configuration DNS et des protections anti-spoofing d'emails (SPF, DMARC, MX)."""
+class MITREMapper:
+    """Associe les découvertes d'audit aux identifiants techniques MITRE ATT&CK."""
 
     @staticmethod
-    def audit_domain(domain):
-        log_title(f"AUDIT DNS & SÉCURITÉ EMAIL (ANTI-SPOOFING) : {domain}")
-        results = {
-            "domain": domain,
-            "mx_records": [],
-            "ns_records": [],
-            "spf": {"found": False, "record": "", "status": "Manquant", "severity": "HIGH"},
-            "dmarc": {"found": False, "record": "", "policy": "none", "status": "Manquant", "severity": "HIGH"},
-            "security_alerts": []
-        }
+    def map_findings(scan_data):
+        tactics = []
+        tactics.append({"technique": "T1595.001", "name": "Active Scanning: Scanning IP Blocks", "phase": "Reconnaissance", "status": "Exécuté"})
+        tactics.append({"technique": "T1590.002", "name": "Gather Victim Network Info: DNS", "phase": "Reconnaissance", "status": "Exécuté"})
+        tactics.append({"technique": "T1596.001", "name": "Search Open Technical Databases: Certificate Logs", "phase": "Reconnaissance", "status": "Actif"})
 
-        # 1. Vérification MX (Mail Exchange)
-        try:
-            # Récupération standard des hôtes MX
-            mx_hosts = socket.getaddrinfo(domain, 25, socket.AF_INET, socket.SOCK_STREAM)
-            unique_ips = list(set([item[4][0] for item in mx_hosts]))
-            results["mx_records"] = unique_ips
-            log_info(f"Serveurs MX associés : {', '.join(unique_ips) if unique_ips else 'Aucun'}")
-        except Exception:
-            pass
+        if scan_data.get("cves"):
+            tactics.append({"technique": "T1190", "name": "Exploit Public-Facing Application (CVEs Détectées)", "phase": "Initial Access", "status": "Risque Élevé"})
 
-        # 2. Résolution DNS avancée via DoH (DNS-over-HTTPS Cloudflare/Google) sans dépendances
-        def query_doh(qname, qtype="TXT"):
-            url = f"https://cloudflare-dns.com/dns-query?name={qname}&type={qtype}"
-            try:
-                req = urllib.request.Request(url, headers={"Accept": "application/dns-json", "User-Agent": "DSS-DNSAuditor"})
-                with urllib.request.urlopen(req, timeout=3.0) as res:
-                    data = json.loads(res.read().decode())
-                    answers = data.get("Answer", [])
-                    return [a["data"].strip('"') for a in answers if "data" in a]
-            except Exception:
-                return []
+        if scan_data.get("js_secrets") or scan_data.get("web_audit", {}).get("sensitive_paths"):
+            tactics.append({"technique": "T1552.001", "name": "Unsecured Credentials: Credentials In Files / Secrets", "phase": "Credential Access", "status": "Critique"})
 
-        # Interrogation SPF
-        txt_records = query_doh(domain, "TXT")
-        for rec in txt_records:
-            if rec.startswith("v=spf1"):
-                results["spf"]["found"] = True
-                results["spf"]["record"] = rec
-                if "+all" in rec:
-                    results["spf"]["status"] = "DANGEREUX (+all autorise l'usurpation totale)"
-                    results["spf"]["severity"] = "CRITICAL"
-                    results["security_alerts"].append("Enregistrement SPF permissive (+all) : permet l'usurpation d'identité d'email !")
-                elif "~all" in rec or "-all" in rec:
-                    results["spf"]["status"] = "CONFORME (Softfail/Hardfail)"
-                    results["spf"]["severity"] = "OK"
-                break
+        if scan_data.get("cloud_buckets"):
+            tactics.append({"technique": "T1530", "name": "Data from Cloud Storage Object", "phase": "Collection", "status": "Avertissement"})
 
-        if not results["spf"]["found"]:
-            results["security_alerts"].append("Enregistrement SPF absent : Risque élevé de phishing / usurpation de domaine !")
-            log_danger(f"SPF : {Colors.RED}ABSENT{Colors.RESET} (Vulnérable à l'usurpation d'e-mails)")
-        else:
-            col = Colors.GREEN if results["spf"]["severity"] == "OK" else Colors.RED
-            log_success(f"SPF : {col}{results['spf']['record']}{Colors.RESET} ({results['spf']['status']})")
-
-        # Interrogation DMARC (_dmarc.domain)
-        dmarc_records = query_doh(f"_dmarc.{domain}", "TXT")
-        for rec in dmarc_records:
-            if rec.startswith("v=DMARC1"):
-                results["dmarc"]["found"] = True
-                results["dmarc"]["record"] = rec
-                if "p=reject" in rec:
-                    results["dmarc"]["policy"] = "reject"
-                    results["dmarc"]["status"] = "OPTIMAL (Rejet strict des emails frauduleux)"
-                    results["dmarc"]["severity"] = "OK"
-                elif "p=quarantine" in rec:
-                    results["dmarc"]["policy"] = "quarantine"
-                    results["dmarc"]["status"] = "BON (Mise en quarantaine)"
-                    results["dmarc"]["severity"] = "OK"
-                elif "p=none" in rec:
-                    results["dmarc"]["policy"] = "none"
-                    results["dmarc"]["status"] = "FAIBLE (Mode surveillance p=none, pas de blocage)"
-                    results["dmarc"]["severity"] = "MEDIUM"
-                    results["security_alerts"].append("DMARC en mode 'p=none' : les e-mails falsifiés ne sont pas bloqués.")
-                break
-
-        if not results["dmarc"]["found"]:
-            results["security_alerts"].append("Enregistrement DMARC absent : Aucune politique de rejet des e-mails frauduleux.")
-            log_danger(f"DMARC : {Colors.RED}ABSENT{Colors.RESET} (Aucune politique DMARC configurée)")
-        else:
-            col = Colors.GREEN if results["dmarc"]["severity"] == "OK" else Colors.YELLOW
-            log_success(f"DMARC : {col}{results['dmarc']['record']}{Colors.RESET} ({results['dmarc']['status']})")
-
-        return results
+        return tactics
 
 # =============================================================================
-# MODULE 5 : DÉCOUVERTE SAN & AUDIT SSL/TLS AVANCÉ
-# =============================================================================
-class TLSInspector:
-    """Analyse exhaustive de la configuration TLS, certificats et Subject Alternative Names (SAN)."""
-
-    TLS_VERSIONS = [
-        ("SSLv3", getattr(ssl, "PROTOCOL_SSLv23", None), "CRITICAL", "Protocole obsolète vulnérable à POODLE"),
-        ("TLS 1.0", getattr(ssl, "PROTOCOL_TLSv1", None), "HIGH", "Obsolète et déprécié par le RFC 8996 (vulnérable à BEAST)"),
-        ("TLS 1.1", getattr(ssl, "PROTOCOL_TLSv1_1", None), "HIGH", "Obsolète et déprécié"),
-        ("TLS 1.2", getattr(ssl, "PROTOCOL_TLSv1_2", None), "OK", "Protocole sécurisé standard"),
-        ("TLS 1.3", getattr(ssl, "PROTOCOL_TLS_CLIENT", None), "EXCELLENT", "Dernière norme TLS sécurisée et rapide")
-    ]
-
-    @staticmethod
-    def audit_tls(hostname, port=443, timeout=3.0):
-        log_title(f"AUDIT CRYPTOGRAPHIQUE SSL / TLS & SAN : {hostname}:{port}")
-        report = {
-            "supported_protocols": [],
-            "certificate": {},
-            "sans_discovered": [],
-            "vulnerabilities": [],
-            "grade": "A"
-        }
-
-        # 1. Versions de protocole
-        for v_name, proto, risk, desc in TLSInspector.TLS_VERSIONS:
-            if proto is None:
-                continue
-            try:
-                ctx = ssl.SSLContext(proto)
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                with socket.create_connection((hostname, port), timeout=timeout) as s:
-                    with ctx.wrap_socket(s, server_hostname=hostname) as ss:
-                        report["supported_protocols"].append({
-                            "version": v_name,
-                            "negotiated": ss.version(),
-                            "status": "SUPPORTÉ",
-                            "risk": risk,
-                            "description": desc
-                        })
-                        if risk in ["CRITICAL", "HIGH"]:
-                            report["vulnerabilities"].append(f"Protocole non sécurisé actif : {v_name} ({desc})")
-                            report["grade"] = "F" if risk == "CRITICAL" else "C"
-            except Exception:
-                report["supported_protocols"].append({
-                    "version": v_name,
-                    "status": "NON SUPPORTÉ",
-                    "risk": "OK"
-                })
-
-        # 2. Analyse certificat & SAN
-        try:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            with socket.create_connection((hostname, port), timeout=timeout) as s:
-                with ctx.wrap_socket(s, server_hostname=hostname) as ss:
-                    cert = ss.getpeercert(binary_form=False)
-                    cipher = ss.cipher()
-                    subject = dict(x[0] for x in cert.get('subject', [])) if cert else {}
-                    issuer = dict(x[0] for x in cert.get('issuer', [])) if cert else {}
-                    not_after = cert.get('notAfter')
-                    
-                    # Découverte des noms alternatifs (SAN)
-                    sans = []
-                    for k, v in cert.get('subjectAltName', []):
-                        if k == 'DNS':
-                            sans.append(v)
-                    report["sans_discovered"] = sans
-
-                    days_left = None
-                    if not_after:
-                        exp_date = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
-                        days_left = (exp_date - datetime.utcnow()).days
-
-                    report["certificate"] = {
-                        "subject": subject.get('commonName', hostname),
-                        "issuer": issuer.get('organizationName', issuer.get('commonName', 'Inconnu')),
-                        "valid_until": not_after,
-                        "days_remaining": days_left,
-                        "cipher": cipher[0] if cipher else "N/A",
-                        "tls_version": ss.version()
-                    }
-
-                    log_success(f"Certificat émis pour : {Colors.BOLD}{report['certificate']['subject']}{Colors.RESET} par {report['certificate']['issuer']}")
-                    log_info(f"Protocole négocié : {ss.version()} | Suite de chiffrement : {report['certificate']['cipher']}")
-                    
-                    if sans:
-                        log_success(f"Noms alternatifs (SAN) découverts ({len(sans)}) : {Colors.CYAN}{', '.join(sans[:6])}{'...' if len(sans) > 6 else ''}{Colors.RESET}")
-
-                    if days_left is not None:
-                        if days_left < 0:
-                            report["vulnerabilities"].append(f"Le certificat SSL a expiré depuis {abs(days_left)} jours !")
-                            report["grade"] = "F"
-                            log_danger(f"Le certificat a expiré depuis {abs(days_left)} jours !")
-                        elif days_left < 15:
-                            report["vulnerabilities"].append(f"Le certificat SSL expire dans {days_left} jours.")
-                            log_warning(f"Le certificat expire dans {days_left} jours !")
-                        else:
-                            log_info(f"Validité : {days_left} jours restants (Expire le {not_after})")
-        except Exception as e:
-            report["certificate"] = {"error": str(e)}
-
-        return report
-
-# =============================================================================
-# MODULE 6 : SONDES DE SERVICES & VERSIONS (-sV)
-# =============================================================================
-class ServiceFingerprinter:
-    """Sondes et analyseurs de protocoles pour identifier précisément les versions logicielles."""
-
-    @staticmethod
-    def probe_ssh(ip, port, timeout=1.5):
-        try:
-            with socket.create_connection((ip, port), timeout=timeout) as s:
-                raw = s.recv(256)
-                banner = raw.decode(errors="ignore").strip()
-                if banner.startswith("SSH-"):
-                    return {"protocol": "SSH", "banner": banner, "version": banner.split()[0]}
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def probe_http(ip, port, ssl_mode=False, timeout=1.5):
-        try:
-            sock = socket.create_connection((ip, port), timeout=timeout)
-            if ssl_mode:
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                sock = ctx.wrap_socket(sock)
-            
-            req = b"HEAD / HTTP/1.1\r\nHost: " + ip.encode() + b"\r\nUser-Agent: Mozilla/5.0 DSS-Scanner/3.0\r\n\r\n"
-            sock.sendall(req)
-            sock.settimeout(timeout)
-            resp = sock.recv(1024).decode(errors="ignore")
-            sock.close()
-
-            server = ""
-            powered = ""
-            for line in resp.split("\r\n"):
-                if line.lower().startswith("server:"):
-                    server = line.split(":", 1)[1].strip()
-                elif line.lower().startswith("x-powered-by:"):
-                    powered = line.split(":", 1)[1].strip()
-
-            banner_parts = []
-            if server: banner_parts.append(f"Server: {server}")
-            if powered: banner_parts.append(f"Powered-by: {powered}")
-            
-            if banner_parts:
-                return {"protocol": "HTTPS" if ssl_mode else "HTTP", "banner": " | ".join(banner_parts), "server": server, "powered": powered}
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def probe_ftp(ip, port, timeout=1.5):
-        try:
-            with socket.create_connection((ip, port), timeout=timeout) as s:
-                raw = s.recv(512).decode(errors="ignore").strip()
-                if raw.startswith("220"):
-                    s.sendall(b"USER anonymous\r\n")
-                    r2 = s.recv(256).decode(errors="ignore")
-                    anon_allowed = False
-                    if "331" in r2:
-                        s.sendall(b"PASS anonymous@example.com\r\n")
-                        r3 = s.recv(256).decode(errors="ignore")
-                        if "230" in r3:
-                            anon_allowed = True
-                    s.sendall(b"QUIT\r\n")
-                    banner = raw[4:].strip()
-                    if anon_allowed:
-                        banner += " [⚠️ Anonymous Login Allowed]"
-                    return {"protocol": "FTP", "banner": banner}
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def probe_smtp(ip, port, timeout=1.5):
-        try:
-            with socket.create_connection((ip, port), timeout=timeout) as s:
-                banner = s.recv(512).decode(errors="ignore").strip()
-                if banner.startswith("220"):
-                    s.sendall(b"EHLO dss-security.local\r\n")
-                    ehlo_resp = s.recv(1024).decode(errors="ignore")
-                    s.sendall(b"QUIT\r\n")
-                    features = []
-                    if "STARTTLS" in ehlo_resp: features.append("STARTTLS")
-                    if "AUTH" in ehlo_resp: features.append("AUTH")
-                    f_str = f" ({','.join(features)})" if features else ""
-                    return {"protocol": "SMTP", "banner": f"{banner[4:].strip()}{f_str}"}
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def probe_mysql(ip, port, timeout=1.5):
-        try:
-            with socket.create_connection((ip, port), timeout=timeout) as s:
-                data = s.recv(256)
-                if len(data) > 5 and data[4] == 0x0a:
-                    null_idx = data.find(b"\x00", 5)
-                    if null_idx != -1:
-                        ver = data[5:null_idx].decode(errors="ignore")
-                        return {"protocol": "MySQL", "banner": f"MySQL Protocol v10 (Version: {ver})", "version": ver}
-        except Exception:
-            pass
-        return None
-
-    @staticmethod
-    def probe_redis(ip, port, timeout=1.5):
-        try:
-            with socket.create_connection((ip, port), timeout=timeout) as s:
-                s.sendall(b"INFO\r\n")
-                resp = s.recv(1024).decode(errors="ignore")
-                if "redis_version:" in resp:
-                    for line in resp.splitlines():
-                        if line.startswith("redis_version:"):
-                            ver = line.split(":")[1].strip()
-                            return {"protocol": "Redis", "banner": f"Redis Server v{ver} (No Auth)", "version": ver}
-                elif "NOAUTH" in resp:
-                    return {"protocol": "Redis", "banner": "Redis Server (Authentication Required)"}
-        except Exception:
-            pass
-        return None
-
-    @classmethod
-    def identify(cls, ip, port, timeout=1.5):
-        if port in [22, 2222]:
-            res = cls.probe_ssh(ip, port, timeout)
-            if res: return res
-        elif port in [80, 8080, 8000, 3000, 5000, 9000]:
-            res = cls.probe_http(ip, port, ssl_mode=False, timeout=timeout)
-            if res: return res
-        elif port in [443, 8443, 9443]:
-            res = cls.probe_http(ip, port, ssl_mode=True, timeout=timeout)
-            if res: return res
-        elif port == 21:
-            res = cls.probe_ftp(ip, port, timeout)
-            if res: return res
-        elif port in [25, 587]:
-            res = cls.probe_smtp(ip, port, timeout)
-            if res: return res
-        elif port == 3306:
-            res = cls.probe_mysql(ip, port, timeout)
-            if res: return res
-        elif port == 6379:
-            res = cls.probe_redis(ip, port, timeout)
-            if res: return res
-
-        try:
-            with socket.create_connection((ip, port), timeout=timeout) as s:
-                s.sendall(b"HEAD / HTTP/1.0\r\n\r\n\r\n")
-                raw = s.recv(512).decode(errors="ignore")
-                for line in raw.splitlines():
-                    clean = line.strip()
-                    if clean and not clean.startswith("<") and len(clean) > 3:
-                        return {"protocol": "Service", "banner": clean[:70]}
-        except Exception:
-            pass
-
-        return {"protocol": SERVICES_MAP.get(port, "Inconnu"), "banner": ""}
-
-# =============================================================================
-# MODULE 7 : SCANNER UDP AVEC SONDES PROTOCOLAIRES (-sU)
-# =============================================================================
-class UDPScanner:
-    UDP_PROBES = {
-        53: b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07version\x04bind\x00\x00\x10\x00\x03",
-        123: b"\x1b" + 47 * b"\0",
-        161: b"\x30\x26\x02\x01\x00\x04\x06public\xa0\x19\x02\x04\x00\x00\x00\x01\x02\x01\x00\x02\x01\x00\x30\x0b\x30\x09\x06\x05\x2b\x06\x01\x02\x01\x05\x00",
-        137: b"\x80\xf0\x00\x10\x00\x01\x00\x00\x00\x00\x00\x00\x20CKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x00\x00\x21\x00\x01",
-        1900: b"M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: ssdp:all\r\n\r\n"
-    }
-
-    def __init__(self, target_ip, ports=None, timeout=1.5):
-        self.target_ip = target_ip
-        self.ports = ports or UDP_COMMON_PORTS
-        self.timeout = timeout
-        self.open_ports = []
-
-    def probe_port(self, port):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(self.timeout)
-        probe = self.UDP_PROBES.get(port, b"\x00\x00\x00\x00\x00\x00")
-        try:
-            sock.sendto(probe, (self.target_ip, port))
-            data, _ = sock.recvfrom(1024)
-            service = SERVICES_MAP.get(port, "UDP Service")
-            sock.close()
-            return {
-                "port": port,
-                "protocol": "udp",
-                "status": "open",
-                "service": service,
-                "banner": data[:60].decode(errors="ignore").strip()
-            }
-        except Exception:
-            pass
-        finally:
-            sock.close()
-        return None
-
-    def run(self):
-        log_title(f"SCAN UDP PROTOCÔLAIRE (-sU) : {self.target_ip}")
-        log_info(f"Test de {len(self.ports)} ports UDP clés avec sondes protocolaires...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            results = list(executor.map(self.probe_port, self.ports))
-
-        for r in results:
-            if r:
-                self.open_ports.append(r)
-                log_success(f"Port UDP Détecté Ouvert : {Colors.BOLD}{r['port']}/udp{Colors.RESET} ({r['service']})")
-
-        if not self.open_ports:
-            log_info("Aucune réponse explicite sur les sondes UDP (ports filtrés ou silencieux).")
-        return self.open_ports
-
-# =============================================================================
-# MODULE 8 : SCANNER DE PORTS TCP & CORRÉLATEUR CVE
+# MODULE 10 : SCANNER DE PORTS TCP & VERSIONS (-sV)
 # =============================================================================
 class PortScanner:
-    def __init__(self, target, ports, timing="T3", grab_banners=True):
+    def __init__(self, target, ports, timing="T3"):
         self.target = target
         self.ports = ports
         self.timing = TIMING_PROFILES.get(timing, TIMING_PROFILES["T3"])
         self.threads = self.timing["threads"]
         self.timeout = self.timing["timeout"]
         self.delay = self.timing["delay"]
-        self.grab_banners = grab_banners
         self.ip = None
-        self.hostname = None
         self.results = []
         self.cve_findings = []
-        self.ttl = None
 
     def resolve(self):
         try:
             self.ip = socket.gethostbyname(self.target)
-            try:
-                self.hostname = socket.gethostbyaddr(self.ip)[0]
-            except Exception:
-                self.hostname = self.target
             return True
-        except socket.gaierror as e:
+        except Exception as e:
             log_danger(f"Résolution DNS échouée pour '{self.target}' : {e}")
             return False
-
-    def estimate_os(self):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(self.timeout)
-            s.connect((self.ip, self.ports[0] if self.ports else 80))
-            self.ttl = s.getsockopt(socket.IPPROTO_IP, socket.IP_TTL)
-            s.close()
-        except Exception:
-            pass
-
-        if self.ttl is not None:
-            if self.ttl <= 64:
-                return f"Linux / FreeBSD / macOS / Android (TTL: {self.ttl})"
-            elif self.ttl <= 128:
-                return f"Microsoft Windows (TTL: {self.ttl})"
-            elif self.ttl <= 255:
-                return f"Cisco IOS / Equipement Réseau / Solaris (TTL: {self.ttl})"
-        return "Indéterminé"
 
     def scan_port(self, port):
         if self.delay > 0:
@@ -929,34 +738,39 @@ class PortScanner:
         sock.close()
 
         if result == 0:
-            service_info = ServiceFingerprinter.identify(self.ip, port, timeout=self.timeout)
-            service_name = service_info.get("protocol", SERVICES_MAP.get(port, "Inconnu"))
-            banner = service_info.get("banner", "")
+            service_name = SERVICES_MAP.get(port, "Inconnu")
+            banner = ""
+            try:
+                with socket.create_connection((self.ip, port), timeout=self.timeout) as s:
+                    if port in [80, 8080, 8000]:
+                        s.sendall(b"HEAD / HTTP/1.0\r\n\r\n")
+                    elif port == 22:
+                        pass
+                    else:
+                        s.sendall(b"\r\n")
+                    raw = s.recv(512).decode(errors="ignore")
+                    for line in raw.splitlines():
+                        c = line.strip()
+                        if c and not c.startswith("<"):
+                            banner = c[:60]
+                            break
+            except Exception:
+                pass
 
-            # Corrélation CVE
             cves = []
             combined_text = f"{service_name} {banner}"
             for rule in CVE_KNOWLEDGE_BASE:
                 if re.search(rule["pattern"], combined_text, re.IGNORECASE):
                     cve_item = {
-                        "port": port,
-                        "cve": rule["cve"],
-                        "title": rule["title"],
-                        "severity": rule["severity"],
-                        "cvss": rule["cvss"],
-                        "recommendation": rule["recommendation"]
+                        "port": port, "cve": rule["cve"], "title": rule["title"],
+                        "severity": rule["severity"], "cvss": rule["cvss"], "recommendation": rule["recommendation"]
                     }
                     cves.append(cve_item)
                     self.cve_findings.append(cve_item)
 
             return {
-                "port": port,
-                "protocol": "tcp",
-                "status": "open",
-                "latency_ms": round(latency, 2),
-                "service": service_name,
-                "banner": banner,
-                "cves": cves
+                "port": port, "protocol": "tcp", "status": "open",
+                "latency_ms": round(latency, 2), "service": service_name, "banner": banner, "cves": cves
             }
         return None
 
@@ -964,11 +778,9 @@ class PortScanner:
         if not self.resolve():
             return []
 
-        log_info(f"Cible : {Colors.BOLD}{self.target}{Colors.RESET} ({self.ip})")
-        log_info(f"Ports : {len(self.ports)} | Timing : {self.timing['name']} ({self.threads} threads, {self.timeout}s timeout)")
-        os_guess = self.estimate_os()
-        log_info(f"OS présumé : {Colors.CYAN}{os_guess}{Colors.RESET}")
-        
+        log_title(f"SCAN TCP & DÉTECTION DE SERVICES : {self.target}")
+        log_info(f"Cible : {Colors.BOLD}{self.target}{Colors.RESET} ({self.ip}) | Ports : {len(self.ports)} | Timing : {self.timing['name']}")
+
         print(f"\n{Colors.BOLD}{'PORT':<10} {'ÉTAT':<10} {'LATENCE':<10} {'SERVICE':<26} {'BANNIÈRE & VERSION'}{Colors.RESET}")
         print(f"{'-'*80}")
 
@@ -979,59 +791,31 @@ class PortScanner:
                 res = future.result()
                 if res:
                     self.results.append(res)
-                    port_str = f"{res['port']}/tcp"
-                    status_str = f"{Colors.GREEN}OUVERT{Colors.RESET}"
-                    lat_str = f"{res['latency_ms']:.1f}ms"
-                    service_str = res['service'][:24]
-                    banner_str = f"{Colors.DIM}{res['banner'][:34]}{Colors.RESET}" if res['banner'] else ""
-                    print(f"{port_str:<10} {status_str:<19} {lat_str:<10} {service_str:<26} {banner_str}")
+                    print(f"{res['port']:<6}/tcp  {Colors.GREEN}OUVERT{Colors.RESET}     {res['latency_ms']:<8.1f}ms  {res['service'][:24]:<26} {Colors.DIM}{res['banner'][:34]}{Colors.RESET}")
 
         self.results.sort(key=lambda x: x["port"])
         elapsed = time.time() - start_time
         print(f"{'-'*80}")
         log_success(f"Scan TCP achevé en {elapsed:.2f}s — {len(self.results)} port(s) ouvert(s).")
-        
-        if self.cve_findings:
-            log_title(f"⚠️ VULNÉRABILITÉS & CVE IDENTIFIÉES ({len(self.cve_findings)})")
-            for cve in self.cve_findings:
-                color = Colors.RED if cve["severity"] == "CRITICAL" else Colors.YELLOW
-                print(f"[{color}{cve['severity']}{Colors.RESET}] Port {cve['port']}/tcp : {Colors.BOLD}{cve['cve']}{Colors.RESET} (CVSS {cve['cvss']})")
-                print(f"    ↳ {cve['title']}")
-                print(f"    💡 Solution : {cve['recommendation']}\n")
-
         return self.results
 
 # =============================================================================
-# MODULE 9 : AUDITEUR WEB OWASP (EN-TÊTES, COOKIES, FICHIERS SENSIBLES)
+# MODULE 11 : AUDITEUR WEB OWASP (EN-TÊTES & FICHIERS SENSIBLES)
 # =============================================================================
 class WebAuditor:
     SENSITIVE_PATHS = [
-        {"path": "/.git/HEAD", "type": "Git Repo Exposure", "severity": "CRITICAL", "desc": "Dépôt Git public — Téléchargement de l'historique et du code"},
-        {"path": "/.env", "type": "Secrets Exposure", "severity": "CRITICAL", "desc": "Fichier .env — Clés d'API et identifiants de bases de données"},
-        {"path": "/.env.local", "type": "Secrets Exposure", "severity": "CRITICAL", "desc": "Environnement local exposé"},
+        {"path": "/.git/HEAD", "type": "Git Repo Exposure", "severity": "CRITICAL", "desc": "Dépôt Git public — Téléchargement du code source"},
+        {"path": "/.env", "type": "Secrets Exposure", "severity": "CRITICAL", "desc": "Fichier .env — Clés d'API et mots de passe BD"},
         {"path": "/wp-config.php.bak", "type": "Config Backup", "severity": "CRITICAL", "desc": "Sauvegarde de configuration WordPress"},
-        {"path": "/config.json", "type": "Configuration", "severity": "HIGH", "desc": "Configuration applicative JSON"},
-        {"path": "/actuator/env", "type": "Spring Actuator", "severity": "CRITICAL", "desc": "Spring Actuator /env fuite de variables critiques"},
-        {"path": "/actuator/health", "type": "Spring Actuator", "severity": "MEDIUM", "desc": "Spring Health endpoint exposé"},
-        {"path": "/phpinfo.php", "type": "Info Disclosure", "severity": "MEDIUM", "desc": "Page phpinfo() révélant la configuration serveur"},
-        {"path": "/server-status", "type": "Info Disclosure", "severity": "MEDIUM", "desc": "Apache mod_status actif"},
-        {"path": "/robots.txt", "type": "Recon", "severity": "INFO", "desc": "Fichier robots.txt disponible pour cartographie"},
-        {"path": "/sitemap.xml", "type": "Recon", "severity": "INFO", "desc": "Plan du site sitemap.xml"},
-        {"path": "/admin/", "type": "Admin Interface", "severity": "MEDIUM", "desc": "Panneau d'administration"},
-        {"path": "/admin/login", "type": "Auth Portal", "severity": "MEDIUM", "desc": "Mire d'authentification admin"},
-        {"path": "/backup.zip", "type": "Backup Archive", "severity": "HIGH", "desc": "Archive de sauvegarde ZIP téléchargeable"},
         {"path": "/backup.sql", "type": "DB Dump", "severity": "CRITICAL", "desc": "Dump SQL de base de données exposé"},
-        {"path": "/api/docs", "type": "API Documentation", "severity": "LOW", "desc": "Documentation OpenAPI / Swagger"},
-        {"path": "/swagger.json", "type": "API Definition", "severity": "LOW", "desc": "Fichier de description OpenAPI / Swagger"}
+        {"path": "/robots.txt", "type": "Recon", "severity": "INFO", "desc": "Fichier robots.txt disponible pour cartographie"},
+        {"path": "/admin/", "type": "Admin Interface", "severity": "MEDIUM", "desc": "Panneau d'administration web"}
     ]
 
     SECURITY_HEADERS = [
-        {"name": "Strict-Transport-Security", "severity": "HIGH", "desc": "Force HTTPS et protège contre les attaques Man-in-the-Middle."},
-        {"name": "Content-Security-Policy", "severity": "HIGH", "desc": "Mitige les failles XSS, injections et chargements de scripts non autorisés."},
-        {"name": "X-Frame-Options", "severity": "MEDIUM", "desc": "Protège contre le Clickjacking (UI Redressing)."},
-        {"name": "X-Content-Type-Options", "severity": "MEDIUM", "desc": "Empêche l'interprétation abusive des types MIME ('nosniff')."},
-        {"name": "Referrer-Policy", "severity": "LOW", "desc": "Contrôle la fuite d'URLs privées dans les en-têtes Referer."},
-        {"name": "Permissions-Policy", "severity": "LOW", "desc": "Restreint l'accès aux API du navigateur (micro, caméra, géoloc)."}
+        {"name": "Strict-Transport-Security", "severity": "HIGH", "desc": "Force HTTPS strict."},
+        {"name": "Content-Security-Policy", "severity": "HIGH", "desc": "Mitige les failles XSS et injections."},
+        {"name": "X-Frame-Options", "severity": "MEDIUM", "desc": "Protège contre le Clickjacking."}
     ]
 
     def __init__(self, target_url, timeout=3.0):
@@ -1041,241 +825,45 @@ class WebAuditor:
         self.timeout = timeout
         self.findings = []
         self.headers_audit = []
-        self.cookies_audit = []
-        self.disclosures = []
 
     def run(self):
-        log_title(f"AUDIT WEB COMPLET (OWASP & CONFIGURATION) : {self.url}")
-        self.audit_headers_and_cookies()
-        self.audit_methods()
-        self.audit_sensitive_paths()
-        return {
-            "url": self.url,
-            "headers_audit": self.headers_audit,
-            "cookies_audit": self.cookies_audit,
-            "disclosures": self.disclosures,
-            "sensitive_paths": self.findings
-        }
-
-    def audit_headers_and_cookies(self):
-        log_info("Analyse des en-têtes HTTP et des cookies de session...")
+        log_title(f"AUDIT WEB OWASP : {self.url}")
         try:
-            req = urllib.request.Request(self.url, headers={"User-Agent": "DSS-WebAuditor/3.0"})
+            req = urllib.request.Request(self.url, headers={"User-Agent": "DSS-WebAuditor/4.0"})
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as res:
                 headers = dict(res.headers)
-                cookie_headers = res.headers.get_all("Set-Cookie") or []
         except urllib.error.HTTPError as e:
             headers = dict(e.headers)
-            cookie_headers = e.headers.get_all("Set-Cookie") or []
-        except Exception as e:
-            log_danger(f"Erreur de connexion HTTP : {e}")
-            return
+        except Exception:
+            headers = {}
 
-        for k in ["server", "x-powered-by", "x-aspnet-version"]:
-            val = next((headers[h] for h in headers if h.lower() == k), None)
-            if val:
-                self.disclosures.append({"header": k, "value": val})
-                log_warning(f"Fuite d'en-tête serveur : {Colors.YELLOW}{k}: {val}{Colors.RESET}")
-
-        print(f"\n{Colors.BOLD}{'EN-TÊTE DE SÉCURITÉ':<32} {'STATUT':<15} {'RISQUE'}{Colors.RESET}")
-        print(f"{'-'*60}")
         for rule in self.SECURITY_HEADERS:
             h_name = rule["name"]
             found_val = next((headers[k] for k in headers if k.lower() == h_name.lower()), None)
             if found_val:
-                print(f"{h_name:<32} {Colors.GREEN}PRÉSENT{Colors.RESET}         {Colors.GREEN}Conforme{Colors.RESET}")
-                self.headers_audit.append({"header": h_name, "present": True, "value": found_val, "severity": "OK"})
+                self.headers_audit.append({"header": h_name, "present": True, "severity": "OK"})
             else:
-                sev_col = Colors.RED if rule["severity"] == "HIGH" else Colors.YELLOW
-                print(f"{h_name:<32} {sev_col}ABSENT{Colors.RESET}          {sev_col}{rule['severity']}{Colors.RESET}")
-                self.headers_audit.append({"header": h_name, "present": False, "severity": rule["severity"], "description": rule["desc"]})
+                self.headers_audit.append({"header": h_name, "present": False, "severity": rule["severity"]})
 
-        for c in cookie_headers:
-            is_secure = "secure" in c.lower()
-            is_httponly = "httponly" in c.lower()
-            is_samesite = "samesite" in c.lower()
-            c_name = c.split("=")[0]
-            self.cookies_audit.append({
-                "cookie": c_name,
-                "secure": is_secure,
-                "httponly": is_httponly,
-                "samesite": is_samesite
-            })
-            if not is_secure or not is_httponly:
-                log_warning(f"Cookie non sécurisé '{c_name}' : Secure={is_secure}, HttpOnly={is_httponly}")
-
-    def audit_methods(self):
-        log_info("Audit des méthodes HTTP (OPTIONS, TRACE, PUT, DELETE)...")
-        for m in ["OPTIONS", "TRACE", "PUT", "DELETE"]:
+        for item in self.SENSITIVE_PATHS:
+            target = self.url + item["path"]
             try:
-                req = urllib.request.Request(self.url, method=m, headers={"User-Agent": "DSS-WebAuditor"})
+                req = urllib.request.Request(target, headers={"User-Agent": "DSS-WebAuditor/4.0"})
                 ctx = ssl.create_default_context()
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as res:
-                    if res.status in [200, 204]:
-                        log_danger(f"Méthode HTTP activée : {Colors.RED}{m} (HTTP {res.status}){Colors.RESET}")
+                    if res.status in [200, 206]:
+                        self.findings.append({"path": item["path"], "status": res.status, "severity": item["severity"], "desc": item["desc"]})
+                        col = Colors.RED if item["severity"] == "CRITICAL" else Colors.YELLOW
+                        log_danger(f"[{col}{item['severity']}{Colors.RESET}] {item['path']} (HTTP {res.status}) : {item['desc']}")
             except Exception:
                 pass
 
-    def check_path(self, item):
-        target = self.url + item["path"]
-        try:
-            req = urllib.request.Request(target, headers={"User-Agent": "Mozilla/5.0 DSS-WebAuditor"})
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as res:
-                if res.status in [200, 206]:
-                    return {
-                        "path": item["path"],
-                        "url": target,
-                        "status": res.status,
-                        "type": item["type"],
-                        "severity": item["severity"],
-                        "desc": item["desc"]
-                    }
-        except urllib.error.HTTPError as e:
-            if e.code in [401, 403]:
-                return {
-                    "path": item["path"],
-                    "url": target,
-                    "status": e.code,
-                    "type": item["type"] + " (Protégé)",
-                    "severity": "LOW",
-                    "desc": f"Présent mais protégé ({e.code})"
-                }
-        except Exception:
-            pass
-        return None
-
-    def audit_sensitive_paths(self):
-        log_info(f"Recherche de chemins sensibles ({len(self.SENSITIVE_PATHS)} endpoints)...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            results = list(executor.map(self.check_path, self.SENSITIVE_PATHS))
-
-        for r in results:
-            if r:
-                self.findings.append(r)
-                col = Colors.RED if r["severity"] == "CRITICAL" else Colors.YELLOW
-                log_danger(f"[{col}{r['severity']}{Colors.RESET}] {Colors.BOLD}{r['path']}{Colors.RESET} (HTTP {r['status']}) - {r['desc']}")
-
-# =============================================================================
-# MODULE 10 : TRACEROUTE TCP/IP
-# =============================================================================
-class NetworkTracer:
-    @staticmethod
-    def trace(target_ip, port=None, max_hops=15, timeout=1.0):
-        log_title(f"TRACEROUTE & ANALYSE DU CHEMIN RÉSEAU : {target_ip}")
-        hops = []
-        probe_port = port or 80
-
-        for ttl in range(1, max_hops + 1):
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                s.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack("I", ttl))
-            except Exception:
-                pass
-            s.settimeout(timeout)
-            t_start = time.time()
-            try:
-                s.connect((target_ip, probe_port))
-                rtt = (time.time() - t_start) * 1000
-                hops.append({"hop": ttl, "ip": target_ip, "rtt_ms": round(rtt, 2), "status": "Cible atteinte"})
-                log_success(f"Saut {ttl:2d} : {Colors.BOLD}{target_ip}{Colors.RESET} (RTT: {rtt:.1f} ms) — [Destination]")
-                s.close()
-                break
-            except (socket.timeout, socket.error):
-                rtt = (time.time() - t_start) * 1000
-                hops.append({"hop": ttl, "ip": "*", "rtt_ms": None, "status": "Pas de réponse"})
-                log_info(f"Saut {ttl:2d} : * * * (TTL {ttl})")
-            finally:
-                s.close()
-        return hops
-
-# =============================================================================
-# MODULE 11 : SOUS-DOMAINES & SOUS-RÉSEAUX
-# =============================================================================
-class SubdomainScanner:
-    TOP_SUBS = [
-        "www", "mail", "ftp", "admin", "webmail", "smtp", "pop", "ns1", "ns2",
-        "api", "dev", "test", "staging", "beta", "vpn", "portal", "secure",
-        "cloud", "app", "git", "gitlab", "github", "jira", "confluence",
-        "auth", "login", "sso", "cdn", "static", "m", "mobile", "shop",
-        "direct", "remote", "server", "dns", "monitor", "grafana", "kibana",
-        "jenkins", "ci", "docker", "k8s", "cpanel", "whm", "autodiscover",
-        "vault", "db", "mysql", "redis", "elastic", "prometheus"
-    ]
-
-    def __init__(self, domain, threads=25):
-        self.domain = domain
-        self.threads = threads
-        self.found = []
-
-    def check(self, sub):
-        fqdn = f"{sub}.{self.domain}"
-        try:
-            ip = socket.gethostbyname(fqdn)
-            return {"subdomain": fqdn, "ip": ip}
-        except Exception:
-            return None
-
-    def run(self):
-        log_title(f"ÉNUMÉRATION DES SOUS-DOMAINES DNS : {self.domain}")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.threads) as executor:
-            results = list(executor.map(self.check, self.TOP_SUBS))
-        for r in results:
-            if r:
-                self.found.append(r)
-                log_success(f"Sous-domaine trouvé : {Colors.BOLD}{r['subdomain']:<32}{Colors.RESET} -> {Colors.CYAN}{r['ip']}{Colors.RESET}")
-        log_info(f"Total sous-domaines découverts : {len(self.found)}")
-        return self.found
-
-class SubnetScanner:
-    def __init__(self, cidr, threads=50, timeout=1.0):
-        self.cidr = cidr
-        self.threads = threads
-        self.timeout = timeout
-        self.alive = []
-
-    def ping(self, ip_str):
-        for p in [80, 443, 22, 445, 135, 8080]:
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(self.timeout)
-                if s.connect_ex((ip_str, p)) == 0:
-                    s.close()
-                    try:
-                        host = socket.gethostbyaddr(ip_str)[0]
-                    except Exception:
-                        host = "N/A"
-                    return {"ip": ip_str, "status": "up", "hostname": host, "port": p}
-                s.close()
-            except Exception:
-                pass
-        return None
-
-    def run(self):
-        log_title(f"BALAYAGE RÉSEAU CIDR (PING SWEEP) : {self.cidr}")
-        try:
-            net = ipaddress.ip_network(self.cidr, strict=False)
-            hosts = [str(ip) for ip in net.hosts()]
-        except Exception as e:
-            log_danger(f"Format CIDR incorrect : {e}")
-            return []
-
-        log_info(f"Balayage de {len(hosts)} adresses IP...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.threads) as executor:
-            futures = [executor.submit(self.ping, ip) for ip in hosts]
-            for f in concurrent.futures.as_completed(futures):
-                res = f.result()
-                if res:
-                    self.alive.append(res)
-                    log_success(f"Hôte Actif : {Colors.BOLD}{res['ip']:<18}{Colors.RESET} ({res['hostname']}) via port {res['port']}")
-        return self.alive
+        return {"headers_audit": self.headers_audit, "sensitive_paths": self.findings}
 
 # =============================================================================
 # MODULE 12 : GÉNÉRATEUR DE RAPPORTS (HTML, JSON, XML NMAP, MARKDOWN)
@@ -1289,110 +877,34 @@ class ReportGenerator:
 
     @staticmethod
     def export_xml(data, filename):
-        nmaprun = ET.Element("nmaprun", {
-            "scanner": "dss-scanner",
-            "version": "3.0",
-            "start": str(int(time.time())),
-            "args": f"scan.py -t {data.get('target')}"
-        })
+        nmaprun = ET.Element("nmaprun", {"scanner": "dss-scanner", "version": "4.0", "start": str(int(time.time()))})
         host = ET.SubElement(nmaprun, "host")
-        status = ET.SubElement(host, "status", {"state": "up"})
-        address = ET.SubElement(host, "address", {"addr": data.get("target", "N/A"), "addrtype": "ipv4"})
+        ET.SubElement(host, "status", {"state": "up"})
+        ET.SubElement(host, "address", {"addr": data.get("target", "N/A"), "addrtype": "ipv4"})
         ports_el = ET.SubElement(host, "ports")
-        
         for p in data.get("ports", []):
-            port_el = ET.SubElement(ports_el, "port", {"protocol": p.get("protocol", "tcp"), "portid": str(p["port"])})
-            ET.SubElement(port_el, "state", {"state": p.get("status", "open")})
+            port_el = ET.SubElement(ports_el, "port", {"protocol": "tcp", "portid": str(p["port"])})
+            ET.SubElement(port_el, "state", {"state": "open"})
             ET.SubElement(port_el, "service", {"name": p.get("service", "unknown"), "product": p.get("banner", "")})
-
         tree = ET.ElementTree(nmaprun)
         tree.write(filename, encoding="utf-8", xml_declaration=True)
-        log_success(f"Rapport XML (Format standard Nmap) : {Colors.BOLD}{filename}{Colors.RESET}")
+        log_success(f"Rapport XML Nmap : {Colors.BOLD}{filename}{Colors.RESET}")
 
     @staticmethod
     def export_markdown(data, filename):
         lines = [
-            "# 🛡️ Rapport d'Audit de Sécurité — DSS Ultimate Security Scanner",
-            f"> **Cible** : `{data.get('target', 'N/A')}`",
-            f"> **Date** : {data.get('timestamp', datetime.utcnow().isoformat())}",
+            "# 🛡️ Rapport d'Audit & ASM — DSS Ultimate Security Scanner v4.0",
+            f"> **Cible** : `{data.get('target', 'N/A')}` | **Date** : {data.get('timestamp')}",
             "",
             "---",
-            "## 1. 📊 Synthèse Exécutive",
+            "## 1. 📊 Synthèse Globale",
             f"- **Ports TCP ouverts** : {len(data.get('ports', []))}",
-            f"- **Ports UDP ouverts** : {len(data.get('udp_ports', []))}",
             f"- **Vulnérabilités / CVE** : {len(data.get('cves', []))}",
-            f"- **WAF / CDN détecté** : {len(data.get('waf', []))}",
-            f"- **Technologies & CMS** : {len(data.get('tech_stack', []))}",
+            f"- **Secrets JS détectés** : {len(data.get('js_secrets', []))}",
+            f"- **Buckets Cloud exposés** : {len(data.get('cloud_buckets', []))}",
+            f"- **Sous-domaines CT Logs** : {len(data.get('ct_logs_subdomains', []))}",
             ""
         ]
-
-        geo = data.get("geolocation", {})
-        if geo:
-            lines.extend([
-                "---",
-                "## 🌍 2. Géolocalisation & Renseignement Réseau (OSINT)",
-                f"- **Pays / Ville** : {geo.get('country', 'N/A')} ({geo.get('city', 'N/A')})",
-                f"- **Fournisseur (FAI)** : {geo.get('isp', 'N/A')}",
-                f"- **Système Autonome (ASN)** : `{geo.get('asn', 'N/A')}`",
-                f"- **Reverse DNS (PTR)** : `{geo.get('reverse_dns', 'N/A')}`",
-                f"- **Coordonnées GPS** : `{geo.get('latitude')}, {geo.get('longitude')}`",
-                ""
-            ])
-
-        if data.get("waf"):
-            lines.extend([
-                "---",
-                "## 🛡️ 3. Pare-feu Applicatif (WAF / CDN)",
-                "| Nom | En-tête de détection | Description |",
-                "|---|---|---|"
-            ])
-            for w in data["waf"]:
-                lines.append(f"| **{w['name']}** | `{w['header']}` | {w['description']} |")
-            lines.append("")
-
-        if data.get("tech_stack"):
-            lines.extend([
-                "---",
-                "## 🧩 4. Technologies & CMS Détectés",
-                "| Composant / Stack | Catégorie |",
-                "|---|---|"
-            ])
-            for t in data["tech_stack"]:
-                lines.append(f"| **{t['name']}** | `{t['type']}` |")
-            lines.append("")
-
-        dns_sec = data.get("dns_audit", {})
-        if dns_sec:
-            lines.extend([
-                "---",
-                "## ✉️ 5. Sécurité Email & DNS (Anti-Spoofing)",
-                f"- **SPF Record** : `{dns_sec.get('spf', {}).get('record', 'ABSENT')}` ({dns_sec.get('spf', {}).get('status', 'N/A')})",
-                f"- **DMARC Record** : `{dns_sec.get('dmarc', {}).get('record', 'ABSENT')}` ({dns_sec.get('dmarc', {}).get('status', 'N/A')})",
-                ""
-            ])
-
-        lines.extend([
-            "---",
-            "## 🔌 6. Ports et Services Réseau Identifiés",
-            "| Protocole | Port | Latence | Service | Bannière / Version |",
-            "|---|---|---|---|---|"
-        ])
-        for p in data.get("ports", []):
-            lines.append(f"| TCP | `{p['port']}` | {p.get('latency_ms', '-')} ms | {p['service']} | `{p.get('banner', '-')}` |")
-        for p in data.get("udp_ports", []):
-            lines.append(f"| UDP | `{p['port']}` | - | {p['service']} | `{p.get('banner', '-')}` |")
-
-        if data.get("cves"):
-            lines.extend([
-                "",
-                "---",
-                "## 🚨 7. Vulnérabilités & CVE Détectées",
-                "| Port | CVE | Criticité | CVSS | Titre | Recommandation |",
-                "|---|---|---|---|---|---|"
-            ])
-            for c in data["cves"]:
-                lines.append(f"| `{c.get('port', '-')}` | **{c['cve']}** | `{c['severity']}` | {c['cvss']} | {c['title']} | {c['recommendation']} |")
-
         with open(filename, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         log_success(f"Rapport Markdown : {Colors.BOLD}{filename}{Colors.RESET}")
@@ -1404,10 +916,10 @@ class ReportGenerator:
         geo = data.get("geolocation", {})
         
         cve_count = len(data.get("cves", []))
-        crit_count = sum(1 for c in data.get("cves", []) if c.get("severity") == "CRITICAL")
-        exposed_count = len(data.get("web_audit", {}).get("sensitive_paths", []))
+        sec_count = len(data.get("js_secrets", []))
+        bucket_count = len([b for b in data.get("cloud_buckets", []) if b.get("severity") == "CRITICAL"])
         
-        score = max(10, 100 - (crit_count * 30) - (cve_count * 10) - (exposed_count * 8))
+        score = max(10, 100 - (cve_count * 25) - (sec_count * 20) - (bucket_count * 25))
         score_color = "#238636" if score >= 80 else ("#d29922" if score >= 50 else "#da3633")
 
         ports_rows = "".join([f"""<tr>
@@ -1421,13 +933,20 @@ class ReportGenerator:
         cve_rows = "".join([f"""<tr>
             <td><code>{c.get('port', '-')}/tcp</code></td>
             <td><span class="badge badge-crit">{c['cve']}</span></td>
-            <td><strong>{c['cvss']}</strong> ({c['severity']})</td>
+            <td><strong>{c['cvss']}</strong></td>
             <td>{c['title']}</td>
             <td><small>{c['recommendation']}</small></td>
         </tr>""" for c in data.get("cves", [])])
 
-        tech_badges = "".join([f"""<span class="tech-tag"><strong>{t['name']}</strong> <small>({t['type']})</small></span>""" for t in data.get("tech_stack", [])])
-        waf_badges = "".join([f"""<span class="waf-tag">🛡️ {w['name']} — {w['description']}</span>""" for w in data.get("waf", [])])
+        js_rows = "".join([f"""<tr>
+            <td><strong>{s['name']}</strong></td>
+            <td><span class="badge badge-crit">{s['severity']}</span></td>
+            <td><code>{s['secret']}</code></td>
+            <td><small>{s['source']}</small></td>
+        </tr>""" for s in data.get("js_secrets", [])])
+
+        mitre_badges = "".join([f"""<span class="mitre-tag"><strong>{m['technique']}</strong>: {m['name']} ({m['phase']})</span>""" for m in data.get("mitre_mapping", [])])
+        ct_badges = "".join([f"""<span class="tech-tag">{sub}</span>""" for sub in data.get("ct_logs_subdomains", [])[:15]])
 
         lat = geo.get("latitude", 0.0)
         lon = geo.get("longitude", 0.0)
@@ -1438,18 +957,9 @@ class ReportGenerator:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DSS Security Report — {target}</title>
+    <title>DSS Security ASM Report — {target}</title>
     <style>
-        :root {{
-            --bg: #0b0e14;
-            --card-bg: #151b23;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --heading: #58a6ff;
-            --accent: #2ea043;
-            --danger: #f85149;
-            --warning: #d29922;
-        }}
+        :root {{ --bg: #0b0e14; --card-bg: #151b23; --border: #30363d; --text: #c9d1d9; --heading: #58a6ff; --accent: #2ea043; --danger: #f85149; --warning: #d29922; }}
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 2rem; }}
         .container {{ max-width: 1200px; margin: 0 auto; }}
         .header {{ display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #1c2430, #111722); border: 1px solid var(--border); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }}
@@ -1465,8 +975,8 @@ class ReportGenerator:
         .badge-open {{ background: #238636; color: #fff; }}
         .badge-crit {{ background: #da3633; color: #fff; }}
         .badge-port {{ background: #388bfd33; color: #58a6ff; border: 1px solid #388bfd66; }}
-        .tech-tag {{ display: inline-block; background: #1f6feb22; border: 1px solid #1f6feb88; color: #79c0ff; padding: 6px 12px; border-radius: 20px; margin: 4px; font-size: 0.9rem; }}
-        .waf-tag {{ display: inline-block; background: #d2992222; border: 1px solid #d2992288; color: #e3b341; padding: 6px 12px; border-radius: 20px; margin: 4px; font-size: 0.9rem; font-weight: 600; }}
+        .tech-tag {{ display: inline-block; background: #1f6feb22; border: 1px solid #1f6feb88; color: #79c0ff; padding: 4px 10px; border-radius: 16px; margin: 3px; font-size: 0.85rem; }}
+        .mitre-tag {{ display: inline-block; background: #9e6a0322; border: 1px solid #9e6a0388; color: #d29922; padding: 4px 10px; border-radius: 16px; margin: 4px; font-size: 0.85rem; font-weight: 600; }}
         code {{ background: #21262d; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #79c0ff; }}
         .footer {{ text-align: center; margin-top: 3rem; color: #8b949e; font-size: 0.9rem; }}
     </style>
@@ -1475,7 +985,7 @@ class ReportGenerator:
     <div class="container">
         <div class="header">
             <div>
-                <h1>🛡️ DSS Ultimate Security Scanner Report (v3.0)</h1>
+                <h1>🛡️ DSS Ultimate Security Scanner (v4.0 Enterprise / ASM)</h1>
                 <p><strong>Cible :</strong> <code>{target}</code> | <strong>Date :</strong> {ts}</p>
             </div>
             <div class="score-circle">
@@ -1490,48 +1000,53 @@ class ReportGenerator:
                 <p><strong>Ville / Région :</strong> {geo.get('city', 'N/A')} ({geo.get('region', 'N/A')})</p>
                 <p><strong>Fournisseur (FAI) :</strong> {geo.get('isp', 'N/A')}</p>
                 <p><strong>Système Autonome :</strong> <code>{geo.get('asn', 'N/A')}</code></p>
-                <p><strong>Reverse DNS :</strong> <code>{geo.get('reverse_dns', 'N/A')}</code></p>
-                <p><strong>Carte :</strong> <a href="{map_link}" target="_blank" style="color: #58a6ff;">Voir les coordonnées GPS sur OpenStreetMap ↗</a></p>
+                <p><strong>Carte :</strong> <a href="{map_link}" target="_blank" style="color: #58a6ff;">Voir coordonnées GPS sur OpenStreetMap ↗</a></p>
             </div>
 
             <div class="card">
-                <h2>🛡️ WAF & Stack Technologique</h2>
-                <p><strong>Pare-feu Applicatif (WAF) :</strong></p>
-                <div>{waf_badges if waf_badges else '<span style="color: #8b949e;">Aucun WAF public détecté</span>'}</div>
-                <p style="margin-top: 1.5rem;"><strong>Technologies & CMS Détectés :</strong></p>
-                <div>{tech_badges if tech_badges else '<span style="color: #8b949e;">Non identifié</span>'}</div>
+                <h2>📜 Sous-domaines CT Logs (Furtif)</h2>
+                <div>{ct_badges if ct_badges else '<span style="color: #8b949e;">Aucun CT Log découvert</span>'}</div>
             </div>
         </div>
 
         {f'''<div class="card" style="border-left: 5px solid #da3633;">
+            <h2>🔑 Clés & Secrets JavaScript Détectés ({len(data.get("js_secrets", []))})</h2>
+            <table>
+                <thead><tr><th>Nom</th><th>Criticité</th><th>Secret</th><th>Source</th></tr></thead>
+                <tbody>{js_rows}</tbody>
+            </table>
+        </div>''' if data.get("js_secrets") else ''}
+
+        {f'''<div class="card" style="border-left: 5px solid #da3633;">
             <h2>🚨 Vulnérabilités & CVE Détectées ({len(data.get("cves", []))})</h2>
             <table>
-                <thead>
-                    <tr><th>Port</th><th>CVE</th><th>Score CVSS</th><th>Description</th><th>Recommandation</th></tr>
-                </thead>
+                <thead><tr><th>Port</th><th>CVE</th><th>Score CVSS</th><th>Description</th><th>Recommandation</th></tr></thead>
                 <tbody>{cve_rows}</tbody>
             </table>
         </div>''' if data.get("cves") else ''}
 
         <div class="card">
-            <h2>🔌 Services Réseau Découverts (TCP & UDP)</h2>
+            <h2>🔌 Services Réseau Découverts</h2>
             <table>
-                <thead>
-                    <tr><th>Port</th><th>Statut</th><th>Latence</th><th>Service</th><th>Bannière / Version</th></tr>
-                </thead>
-                <tbody>{ports_rows if ports_rows else '<tr><td colspan="5">Aucun port ouvert détecté</td></tr>'}</tbody>
+                <thead><tr><th>Port</th><th>Statut</th><th>Latence</th><th>Service</th><th>Bannière / Version</th></tr></thead>
+                <tbody>{ports_rows if ports_rows else '<tr><td colspan="5">Aucun port ouvert</td></tr>'}</tbody>
             </table>
         </div>
 
+        <div class="card">
+            <h2>🗺️ Matrice MITRE ATT&CK & Posture Défensive</h2>
+            <div>{mitre_badges}</div>
+        </div>
+
         <div class="footer">
-            <p>Généré par DSS Security Scanner (D-Scan v3.0) — Cybersecurity Mastery Roadmap</p>
+            <p>Généré par DSS Security Scanner (v4.0 ASM Edition) — Cybersecurity Mastery Roadmap</p>
         </div>
     </div>
 </body>
 </html>"""
         with open(filename, "w", encoding="utf-8") as f:
             f.write(html)
-        log_success(f"Tableau de bord HTML interactif : {Colors.BOLD}{filename}{Colors.RESET}")
+        log_success(f"Dashboard HTML ASM exporté : {Colors.BOLD}{filename}{Colors.RESET}")
 
 # =============================================================================
 # POINT D'ENTRÉE CLI PRINCIPAL
@@ -1544,8 +1059,8 @@ def banner():
   ██║  ██║╚════██║╚════██║    ╚════██║██║     ██╔══██║██║╚██╗██║
   ██████╔╝███████║███████║    ███████║╚██████╗██║  ██║██║ ╚████║
   ╚═════╝ ╚══════╝╚══════╝    ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝{Colors.RESET}
-  {Colors.BOLD}{Colors.MAGENTA}🛡️  DSS ULTIMATE SECURITY SCANNER (D-SCAN v3.0 ULTIMATE){Colors.RESET}
-  {Colors.DIM}Alternative Nmap / Nikto / SSLyze / WhatWeb — Cybersecurity Roadmap{Colors.RESET}
+  {Colors.BOLD}{Colors.MAGENTA}🛡️  DSS ULTIMATE SECURITY SCANNER (D-SCAN v4.0 ASM EDITION){Colors.RESET}
+  {Colors.DIM}Attack Surface Management · CT Logs · JS Secrets · Cloud Hunter · MITRE{Colors.RESET}
 """
     print(art)
 
@@ -1570,132 +1085,123 @@ def parse_ports(port_arg, top_arg):
 def main():
     banner()
     parser = argparse.ArgumentParser(
-        description="DSS Ultimate Security Scanner (D-Scan v3.0) — Reconnaissance Réseau, OSINT Géolocalisation, Détection WAF/CMS, Versions (-sV), Scan UDP (-sU) & Audit Web.",
+        description="DSS Ultimate Security Scanner (D-Scan v4.0 ASM) — Attack Surface Management & Security Audit Suite.",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
     # Cible
-    parser.add_argument("-t", "--target", help="Cible à analyser (ex: 192.168.1.1, scanme.nmap.org, example.com)")
-    parser.add_argument("--subnet", help="Balayage complet de sous-réseau CIDR (ex: 192.168.1.0/24)")
+    parser.add_argument("-t", "--target", help="Cible à analyser (ex: example.com ou 192.168.1.1)")
+    parser.add_argument("-p", "--ports", help="Ports spécifiques (ex: 80,443,8080 ou 1-1024)")
+    parser.add_argument("--top-ports", type=int, choices=[20, 100, 1000], default=100, help="Top X ports (défaut: 100)")
+    parser.add_argument("-sV", "--service-version", action="store_true", help="Détection de versions et CVEs")
+    parser.add_argument("-T", "--timing", default="3", help="Modèle de timing (1=Furtif à 5=Insane)")
     
-    # Modes de Scan
-    parser.add_argument("-p", "--ports", help="Ports spécifiques à scanner (ex: 80,443,8080 ou 1-1024)")
-    parser.add_argument("--top-ports", type=int, choices=[20, 100, 1000], default=100, help="Scanner les X ports les plus fréquents (défaut: 100)")
-    parser.add_argument("-sV", "--service-version", action="store_true", help="Activer la détection approfondie des versions et corrélation CVE")
-    parser.add_argument("-sU", "--udp", action="store_true", help="Activer le scan des ports UDP clés (DNS, SNMP, NTP, DHCP...)")
-    parser.add_argument("-T", "--timing", default="3", help="Modèle de vitesse / timing : 1 (Furtif), 2 (Poli), 3 (Standard), 4 (Agressif), 5 (Insane)")
-    
-    # Modules OSINT & Reconnaissance avancée
-    parser.add_argument("--geo", action="store_true", help="Activer la géolocalisation IP, ASN et FAI")
-    parser.add_argument("--dns-audit", action="store_true", help="Audit DNS approfondi et sécurité des e-mails (SPF, DMARC, MX)")
-    parser.add_argument("--web", action="store_true", help="Audit web complet (en-têtes HTTP, cookies, méthodes, fichiers exposés)")
-    parser.add_argument("--ssl-audit", action="store_true", help="Audit complet des suites cryptographiques et certificats SSL/TLS")
-    parser.add_argument("--traceroute", action="store_true", help="Calculer la route réseau et le nombre de sauts vers la cible")
-    parser.add_argument("--subdomains", action="store_true", help="Énumération DNS des sous-domaines courants")
-    parser.add_argument("-A", "--full", action="store_true", help="Mode agressif complet (Tous les modules activés simultanément)")
+    # Modules Avancés ASM
+    parser.add_argument("--ct-logs", action="store_true", help="Surveillance passive des sous-domaines via Certificate Transparency (crt.sh)")
+    parser.add_argument("--cloud-hunter", action="store_true", help="Recherche de buckets Cloud publics exposés (AWS S3, GCP, Azure)")
+    parser.add_argument("--js-secrets", action="store_true", help="Extraction de clés d'API et secrets dans les fichiers JavaScript")
+    parser.add_argument("--graphql", action="store_true", help="Audit de points d'API GraphQL et test d'introspection")
+    parser.add_argument("--ipv6-drift", action="store_true", help="Détection de dérive de pare-feu IPv4 vs IPv6")
+    parser.add_argument("--email-sec", action="store_true", help="Audit email avancé (MTA-STS, TLS-RPT, BIMI, SPF, DMARC)")
+    parser.add_argument("--geo", action="store_true", help="Géolocalisation IP & ASN")
+    parser.add_argument("-A", "--full", action="store_true", help="Mode complet absolu (Tous les modules activés simultanément)")
 
-    # Formats de sortie
-    parser.add_argument("--json", help="Sauvegarder le rapport au format JSON")
-    parser.add_argument("--xml", help="Sauvegarder le rapport au format XML standard Nmap (-oX)")
-    parser.add_argument("--markdown", help="Générer un rapport au format Markdown")
-    parser.add_argument("--html", help="Générer un tableau de bord interactif en HTML")
+    # Exports
+    parser.add_argument("--json", help="Export JSON")
+    parser.add_argument("--xml", help="Export XML Nmap")
+    parser.add_argument("--markdown", help="Export Markdown")
+    parser.add_argument("--html", help="Dashboard HTML Interactif")
 
     args = parser.parse_args()
 
-    if not args.target and not args.subnet:
+    if not args.target:
         parser.print_help()
-        print(f"\n{Colors.RED}[!] Spécifiez une cible avec -t <cible> ou un sous-réseau avec --subnet <CIDR>{Colors.RESET}\n")
-        sys.exit(1)
+        print(f"\n{Colors.RED}[!] Veuillez spécifier une cible avec -t <cible>{Colors.RESET}\n")
+        return
 
     timing_key = args.timing.upper()
-    if not timing_key.startswith("T"):
-        timing_key = f"T{timing_key}"
-    if timing_key not in TIMING_PROFILES:
-        timing_key = "T3"
+    if not timing_key.startswith("T"): timing_key = f"T{timing_key}"
+    if timing_key not in TIMING_PROFILES: timing_key = "T3"
 
     scan_data = {
         "timestamp": datetime.utcnow().isoformat(),
-        "target": args.target or args.subnet,
+        "target": args.target,
         "geolocation": {},
+        "ct_logs_subdomains": [],
+        "cloud_buckets": [],
+        "js_secrets": [],
+        "graphql": {},
+        "ipv6_drift": {},
+        "email_security": {},
         "waf": [],
         "tech_stack": [],
-        "dns_audit": {},
         "ports": [],
-        "udp_ports": [],
         "cves": [],
         "web_audit": {},
-        "ssl_audit": {},
-        "traceroute": [],
-        "subdomains": [],
-        "subnet_hosts": []
+        "mitre_mapping": []
     }
 
-    if args.subnet:
-        sub_scanner = SubnetScanner(args.subnet, timeout=TIMING_PROFILES[timing_key]["timeout"])
-        scan_data["subnet_hosts"] = sub_scanner.run()
+    try:
+        target_ip = socket.gethostbyname(args.target)
+    except Exception:
+        target_ip = args.target
 
-    if args.target:
-        ports_to_scan = parse_ports(args.ports, args.top_ports)
-        
-        # 1. Géolocalisation & OSINT
-        try:
-            target_ip = socket.gethostbyname(args.target)
-        except Exception:
-            target_ip = args.target
+    is_domain = not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", args.target)
 
-        if args.geo or args.full:
-            scan_data["geolocation"] = IPGeolocation.lookup(target_ip)
+    # 1. CT Logs
+    if (args.ct_logs or args.full) and is_domain:
+        scan_data["ct_logs_subdomains"] = CTLogsInspector.query(args.target)
 
-        # 2. Audit DNS & SPF / DMARC
-        if (args.dns_audit or args.full) and not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", args.target):
-            scan_data["dns_audit"] = DNSAuditor.audit_domain(args.target)
+    # 2. Cloud Hunter
+    if (args.cloud_hunter or args.full) and is_domain:
+        scan_data["cloud_buckets"] = CloudBucketHunter.hunt(args.target)
 
-        # 3. Scan TCP & Versions
-        log_title(f"SCAN TCP & DÉTECTION DE SERVICES : {args.target}")
-        ps = PortScanner(args.target, ports_to_scan, timing=timing_key, grab_banners=True)
-        scan_data["ports"] = ps.run()
-        scan_data["cves"] = ps.cve_findings
+    # 3. Géolocalisation
+    if args.geo or args.full:
+        scan_data["geolocation"] = IPGeolocation.lookup(target_ip)
 
-        # 4. Scan UDP (-sU)
-        if args.udp or args.full:
-            us = UDPScanner(target_ip, timeout=TIMING_PROFILES[timing_key]["timeout"])
-            scan_data["udp_ports"] = us.run()
+    # 4. Email Security (MTA-STS, TLS-RPT, BIMI)
+    if (args.email_sec or args.full) and is_domain:
+        scan_data["email_security"] = AdvancedEmailSecurity.audit(args.target)
 
-        # 5. Détection WAF & Technologies Web
-        web_ports = [p["port"] for p in scan_data["ports"] if p["port"] in [80, 443, 8080, 8443, 3000, 5000, 8000]]
-        if args.web or args.full or web_ports:
-            scheme = "https" if 443 in web_ports or 8443 in web_ports else "http"
-            url = f"{scheme}://{args.target}"
-            scan_data["waf"] = WAFDetector.detect(url)
-            scan_data["tech_stack"] = TechDetector.fingerprint(url)
-            wa = WebAuditor(url)
-            scan_data["web_audit"] = wa.run()
+    # 5. IPv6 Drift
+    if (args.ipv6_drift or args.full) and is_domain:
+        scan_data["ipv6_drift"] = IPv6DriftScanner.audit(args.target)
 
-        # 6. Audit SSL/TLS & Découverte SAN
-        if args.ssl_audit or args.full or any(p["port"] in [443, 8443] for p in scan_data["ports"]):
-            scan_data["ssl_audit"] = TLSInspector.audit_tls(args.target)
+    # 6. Scan TCP
+    ports_to_scan = parse_ports(args.ports, args.top_ports)
+    ps = PortScanner(args.target, ports_to_scan, timing=timing_key)
+    scan_data["ports"] = ps.run()
+    scan_data["cves"] = ps.cve_findings
 
-        # 7. Traceroute
-        if args.traceroute or args.full:
-            open_port = scan_data["ports"][0]["port"] if scan_data["ports"] else 80
-            scan_data["traceroute"] = NetworkTracer.trace(target_ip, port=open_port)
+    # 7. Audit Web & WAF & Secrets JS & GraphQL
+    web_ports = [p["port"] for p in scan_data["ports"] if p["port"] in [80, 443, 8080, 8443, 3000, 5000, 8000]]
+    if args.full or web_ports:
+        scheme = "https" if (443 in web_ports or 8443 in web_ports) else "http"
+        base_url = f"{scheme}://{args.target}"
 
-        # 8. Sous-domaines
-        if (args.subdomains or args.full) and not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", args.target):
-            subs = SubdomainScanner(args.target)
-            scan_data["subdomains"] = subs.run()
+        scan_data["waf"] = WAFDetector.detect(base_url)
+        scan_data["tech_stack"] = TechDetector.fingerprint(base_url)
+
+        if args.js_secrets or args.full:
+            scan_data["js_secrets"] = JSSecretScanner.scan_url(base_url)
+
+        if args.graphql or args.full:
+            scan_data["graphql"] = GraphQLAuditor.audit(base_url)
+
+        wa = WebAuditor(base_url)
+        scan_data["web_audit"] = wa.run()
+
+    # 8. Matrice MITRE ATT&CK
+    scan_data["mitre_mapping"] = MITREMapper.map_findings(scan_data)
 
     # Exports
-    if args.json:
-        ReportGenerator.export_json(scan_data, args.json)
-    if args.xml:
-        ReportGenerator.export_xml(scan_data, args.xml)
-    if args.markdown:
-        ReportGenerator.export_markdown(scan_data, args.markdown)
-    if args.html:
-        ReportGenerator.export_html(scan_data, args.html)
+    if args.json: ReportGenerator.export_json(scan_data, args.json)
+    if args.xml: ReportGenerator.export_xml(scan_data, args.xml)
+    if args.markdown: ReportGenerator.export_markdown(scan_data, args.markdown)
+    if args.html: ReportGenerator.export_html(scan_data, args.html)
 
-    log_title("SCAN DSS SECURITY TERMINÉ AVEC SUCCÈS")
+    log_title("SCAN DSS SECURITY ASM v4.0 TERMINÉ AVEC SUCCÈS")
 
 if __name__ == "__main__":
     main()
