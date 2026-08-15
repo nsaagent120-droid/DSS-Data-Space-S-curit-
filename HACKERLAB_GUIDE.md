@@ -1,151 +1,193 @@
-# ⚔️ HackerLab CTF Toolkit & Assistant IA — Guide Complet
+# ⚔️ HackerLab CTF Toolkit & Assistant IA (v2.0 Ultimate) — Guide Complet
 
-> Boîte à outils tout-en-un multi-spécialités (**Crypto, Forensics, Reverse, Web, Réseau/PCAP, OSINT**) avec **Assistant d'Analyse et de Méthodologie IA** intégrée pour les compétitions de type HackerLab / CTF.
+> Boîte à outils tout-en-un multi-spécialités (**Scanner de Sécurité Intégré, Crypto, Forensics, Reverse, Pwn, Web, Réseau/PCAP, OSINT & Dictionnaires**) avec **Assistant d'Analyse et de Méthodologie IA** pour les compétitions HackerLab / CTF.
 
 ---
 
 ## 📑 Table des matières
 1. [Vue d'ensemble de la Boîte à Outils](#1-vue-densemble)
-2. [Mode Interactif (TUI)](#2-mode-interactif-tui)
+2. [Mode Interactif (TUI Menu)](#2-mode-interactif-tui-menu)
 3. [Modules Spécialisés](#3-modules-spécialisés)
-   - [🔐 1. Cryptographie & Solveurs (`crypto`)](#-1-cryptographie--solveurs-crypto)
-   - [🔬 2. Forensics & Stéganographie (`forensics`)](#-2-forensics--stéganographie-forensics)
-   - [⚙️ 3. Reverse Engineering & Binaire (`reverse`)](#-3-reverse-engineering--binaire-reverse)
-   - [🌐 4. Sécurité Web & Code Audit (`web`)](#-4-sécurité-web--code-audit-web)
-   - [📡 5. Analyse Réseau & PCAP (`pcap`)](#-5-analyse-réseau--pcap-pcap)
-   - [🤖 6. Assistant IA & Méthodologies CTF (`ai`)](#-6-assistant-ia--méthodologies-ctf-ai)
-4. [Exemples de Scénarios CTF Réels](#4-exemples-de-scénarios-ctf-réels)
+   - [🛡️ 1. Scanner de Sécurité Intégré (D-Scan v3.0)](#️-1-scanner-de-sécurité-intégré-d-scan-v30)
+   - [🔐 2. Cryptographie & Solveurs Mathématiques (`crypto`)](#-2-cryptographie--solveurs-mathématiques-crypto)
+   - [🔬 3. Forensics & Stéganographie (`forensics`)](#-3-forensics--stéganographie-forensics)
+   - [⚙️ 4. Reverse Engineering & Binaire (`reverse`)](#-4-reverse-engineering--binaire-reverse)
+   - [💥 5. Pwn & Exploitation Math (`pwn`)](#-5-pwn--exploitation-math-pwn)
+   - [🌐 6. Sécurité Web & Code Audit (`web`)](#-6-sécurité-web--code-audit-web)
+   - [📡 7. Analyse Réseau & PCAP (`pcap`)](#-7-analyse-réseau--pcap-pcap)
+   - [🌍 8. OSINT, Réseau & Dictionnaires (`osint` & `wordlist`)](#-8-osint-réseau--dictionnaires-osint--wordlist)
+   - [🤖 9. Assistant IA & Méthodologies CTF (`ai`)](#-9-assistant-ia--méthodologies-ctf-ai)
+4. [Scénarios Pratiques de Compétition](#4-scénarios-pratiques-de-compétition)
 
 ---
 
 ## 1. Vue d'ensemble
 
-Le script `hackerlab.py` a été développé pour offrir aux compétiteurs une boîte à outils ultra-rapide, sans dépendances externes lourdes, couvrant l'ensemble des catégories classiques d'un **HackerLab / CTF** :
+Le script `hackerlab.py` regroupe l'intégralité des outils nécessaires pour une compétition CTF moderne en une seule interface autonome sans dépendances externes :
 
 | Domaine | Outils & Capacités Incluses |
 |---|---|
-| **Cryptographie** | Décodeur multi-formats instantané, Casseur César (25 décalages avec scoring), Déchiffreur Vigenère, Bruteforce XOR 1-octet, Identification de Hashes, Solveurs RSA (p, q, e -> d, racine e, module commun, Fermat). |
-| **Forensics** | Identification Magic Bytes / Header corrompu, Calcul d'entropie Shannon (détection de chiffrement/packing), Découpage de fichiers embarqués (*Carving*), Chasseur de flags CTF automatique. |
-| **Reverse Engineering** | Checksec ELF (NX, PIE, Canary, RELRO, Stripped), Extracteur de fonctions et symboles clés, Détecteur de packers (UPX). |
-| **Sécurité Web** | Inspecteur & Forgeur JWT (`alg: none`), Bibliothèque de payloads SSTI (Jinja2, Twig, ERB, Smarty), Scanner Regex d'audit de code. |
-| **Réseau / PCAP** | Parseur PCAP autonome, extraction de requêtes DNS, flux HTTP, identifiants FTP/Basic Auth en clair et flags transitant sur le réseau. |
-| **Assistant IA** | Classificateur automatique de challenges avec scoring de confiance, Checklists méthodologiques pas-à-pas par catégorie, Diagnostiqueur heuristique d'encodages inconnus, Générateur de prompts optimisés pour LLM (Claude, ChatGPT, Ollama). |
+| **🛡️ Scanner Intégré** | D-Scan v3.0 (Scan TCP & UDP, Versions -sV, OSINT Geo, WAF, CMS, DNS, SSL, Rapports HTML/XML). |
+| **🔐 Cryptographie** | Décodeur multi-formats (Base64, Hex, Binaire, Morse, ROT13), Chiffres classiques (César, Vigenère, Rail Fence, Affine, Bacon), Bruteforce XOR 1-octet, Hashes ID, Solveurs RSA (p, q, e -> d, racine e, Fermat) et Logarithme Discret (Baby-step Giant-step). |
+| **🔬 Forensics** | Magic bytes / Headers, Entropie Shannon, Réparateur de dimensions PNG corrompues (CRC32 IHDR), File carving, Chasseur de flags CTF. |
+| **⚙️ Reverse** | Checksec ELF natif (NX, PIE, Canary, RELRO, Stripped), extracteur de symboles et fonctions clés, détection de packers (UPX). |
+| **💥 Pwn** | Générateur cyclique de De Bruijn (`cyclic`), calculateur d'offset de crash (`find`), packing Little-Endian (`p32`/`p64`), vérificateur de badchars. |
+| **🌐 Web** | Inspecteur & forgeur JWT (`alg: none`), bibliothèque de payloads SSTI (Jinja2, Twig, ERB), regex d'audit de code source. |
+| **📡 PCAP / Réseau** | Parseur de captures réseau sans Wireshark (DNS, HTTP, identifiants en clair FTP/Basic Auth, flags en transit). |
+| **🌍 OSINT & Wordlists** | Calculateur de sous-réseaux CIDR, générateur de Google Dorks, constructeur OUI MAC, générateur de mutations Leetspeak CTF. |
+| **🤖 Assistant IA** | Classificateur d'énoncés, checklists méthodologiques pas-à-pas par catégorie, diagnostiqueur heuristique et générateur de prompts LLM. |
 
 ---
 
-## 2. Mode Interactif (TUI)
+## 2. Mode Interactif (TUI Menu)
 
-Pour lancer le menu interactif guidé :
+Lancez simplement la boîte à outils sans argument pour naviguer dans le menu interactif :
 
 ```bash
 python3 hackerlab.py
-# ou
-python3 hackerlab.py --interactive
 ```
 
 ---
 
 ## 3. Modules Spécialisés
 
-### 🔐 1. Cryptographie & Solveurs (`crypto`)
-
+### 🛡️ 1. Scanner de Sécurité Intégré (`scan`)
 ```bash
-# Décodage multi-formats instantané (Base64, Hex, Binaire, Morse, ROT13, Decimal...)
+# Scan complet agressif d'un serveur ou lab CTF
+python3 hackerlab.py scan -t 192.168.1.50 -A --html rapport.html
+```
+
+### 🔐 2. Cryptographie & Solveurs (`crypto`)
+```bash
+# Décodage multi-formats instantané
 python3 hackerlab.py crypto decode "SGFja2VyTGFiIENURg=="
 
-# Casser un Chiffre de César (classement des 25 décalages par probabilité linguistique)
+# Casser un Chiffre de César
 python3 hackerlab.py crypto break-caesar "Kdfnhuode fuBSwr"
 
-# Déchiffrer avec le chiffre de Vigenère
+# Déchiffrer avec Vigenère
 python3 hackerlab.py crypto vigenere "Lxw tglq" "SECRETKEY"
+
+# Déchiffrer ou bruteforcer un Chiffre Rail Fence
+python3 hackerlab.py crypto rail-fence "HkLbCTaeraF" -r 2
+
+# Déchiffrer un Chiffre Affine (ax + b mod 26)
+python3 hackerlab.py crypto affine "Iekkm" -a 7 -b 3
+
+# Déchiffrer le Code Bacon
+python3 hackerlab.py crypto bacon "BAABA ABABA AABAB AABAA"
 
 # Bruteforce XOR sur 1 octet
 python3 hackerlab.py crypto xor "1b37373331363f78151b7f2b783431333d"
 
-# Identifier le type d'un hash inconnu
+# Identifier le type d'un hash
 python3 hackerlab.py crypto hash-id "5d41402abc4b2a76b9719d911017c592"
 
-# Résoudre un problème RSA classique connaissant p, q, e et c
+# Solveur RSA classique (p, q, e -> d et déchiffrement de c)
 python3 hackerlab.py crypto rsa-pq -p 61 -q 53 -e 17 -c 2790
+
+# Résoudre un logarithme discret (g^x = y mod p)
+python3 hackerlab.py crypto dlog -g 2 -y 8 -p 11
 ```
 
----
-
-### 🔬 2. Forensics & Stéganographie (`forensics`)
-
+### 🔬 3. Forensics & Stéganographie (`forensics`)
 ```bash
-# Analyse complète : Magic Bytes réels, Entropie Shannon, Fichiers cachés concaténés et Flags
+# Inspection Forensics complète (Magic bytes, entropie, carving, flags)
 python3 hackerlab.py forensics info image_suspecte.png
 
-# Extraire les chaînes de caractères imprimables (>= 6 caractères)
-python3 hackerlab.py forensics strings dump.bin -n 6
+# Réparer les dimensions d'une image PNG tronquée d'après son CRC32 IHDR
+python3 hackerlab.py forensics fix-png image_tronquee.png
 
-# Recherche automatique de motifs de flags (flag{...}, HL{...}, CTF{...})
-python3 hackerlab.py forensics flags memory_dump.raw
+# Extraire les chaînes de caractères imprimables (longueur >= 6)
+python3 hackerlab.py forensics strings dump.raw -n 6
+
+# Chasser automatiquement les motifs de flags CTF
+python3 hackerlab.py forensics flags capture_memoire.dmp
 ```
 
----
-
-### ⚙️ 3. Reverse Engineering & Binaire (`reverse`)
-
+### ⚙️ 4. Reverse Engineering (`reverse`)
 ```bash
-# Vérifier les mécanismes de sécurité d'un binaire Linux (checksec)
-python3 hackerlab.py reverse checksec challenge_binaire
+# Checksec sur un binaire ELF (NX, PIE, Canary, RELRO)
+python3 hackerlab.py reverse checksec challenge.elf
 
-# Extraire les symboles et fonctions intéressantes (main, validate, check, win, system...)
-python3 hackerlab.py reverse symbols crackme.elf
+# Extraire les fonctions et symboles clés
+python3 hackerlab.py reverse symbols crackme.bin
 ```
 
----
-
-### 🌐 4. Sécurité Web & Code Audit (`web`)
-
+### 💥 5. Pwn & Buffer Overflow Math (`pwn`)
 ```bash
-# Décoder et inspecter un token JWT sans validation
+# Générer une séquence cyclique de De Bruijn (50 octets)
+python3 hackerlab.py pwn cyclic 50
+
+# Trouver l'offset exact du crash EIP/RIP
+python3 hackerlab.py pwn find "Aa3"
+
+# Convertir une adresse en octets Little-Endian (p32 / p64)
+python3 hackerlab.py pwn pack 0x080484b6
+
+# Vérifier la présence de Bad Characters (\x00, \x0a, \x0d)
+python3 hackerlab.py pwn badchars "31c050682f2f736800"
+```
+
+### 🌐 6. Sécurité Web & Code Audit (`web`)
+```bash
+# Décoder un token JWT sans signature
 python3 hackerlab.py web jwt-decode "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-# Forger un JWT non signé avec la faille 'alg: none'
-python3 hackerlab.py web jwt-forge '{"typ":"JWT"}' '{"user":"admin","role":"administrator"}'
+# Forger un JWT non signé (alg: none)
+python3 hackerlab.py web jwt-forge '{"typ":"JWT"}' '{"user":"admin","role":"admin"}'
 
-# Afficher les payloads de test pour les injections de template (SSTI)
+# Afficher la bibliothèque de payloads SSTI
 python3 hackerlab.py web ssti
 ```
 
----
-
-### 📡 5. Analyse Réseau & PCAP (`pcap`)
-
+### 📡 7. Analyse Réseau & PCAP (`pcap`)
 ```bash
-# Analyser une capture de trafic réseau PCAP sans installer Wireshark
-python3 hackerlab.py pcap analyze capture_reseau.pcap
+# Analyser une capture de trafic PCAP en local
+python3 hackerlab.py pcap analyze capture.pcap
 ```
 
----
-
-### 🤖 6. Assistant IA & Méthodologies CTF (`ai`)
-
+### 🌍 8. OSINT & Dictionnaires (`osint` & `wordlist`)
 ```bash
-# Analyser l'énoncé d'un challenge et obtenir une méthodologie d'investigation étape par étape
+# Calculateur de sous-réseau CIDR
+python3 hackerlab.py osint cidr 192.168.1.0/24
+
+# Générateur de Google Dorks pour un domaine
+python3 hackerlab.py osint dorks example.com
+
+# Résolution de constructeur OUI d'une adresse MAC
+python3 hackerlab.py osint mac 00:50:56:12:34:56
+
+# Générateur de mutations de mots de passe Leetspeak CTF
+python3 hackerlab.py wordlist mutate "admin" -n 20
+```
+
+### 🤖 9. Assistant IA & Méthodologies (`ai`)
+```bash
+# Classifier un challenge et obtenir une checklist d'investigation
 python3 hackerlab.py ai analyze -t "RSA Strange Primes" -d "On nous a donné p et q très proches avec le ciphertext c"
 
 # Diagnostiquer un texte suspect ou un encodage inconnu
 python3 hackerlab.py ai detect "eyJhbGciOiJub25lIn0.eyJ1c2VyIjoiYWRtaW4ifQ."
 
-# Générer un prompt LLM optimisé pour faire analyser du code désassemblé par une IA
-python3 hackerlab.py ai prompt -c "Reverse" -f "void validate(char *input) { if (input[0] ^ 0x42 == 0x13) ... }"
+# Générer un prompt LLM optimisé
+python3 hackerlab.py ai prompt -c "Reverse" -f "void validate(char *input) { ... }"
 ```
 
 ---
 
-## 4. Exemples de Scénarios CTF Réels
+## 4. Scénarios Pratiques de Compétition
 
-### 🚩 Scénario 1 : Vous recevez un fichier `challenge.jpg` sans extension claire
-1. `python3 hackerlab.py forensics info challenge.jpg` → Vérifie si les premiers octets correspondent réellement à un JPEG ou s'il s'agit d'un ZIP ou ELF masqué.
-2. `python3 hackerlab.py forensics flags challenge.jpg` → Cherche directement si le flag est caché en clair dans le fichier.
+### 🚩 Scénario 1 : Image PNG tronquée (Flag invisible en bas de l'image)
+1. `python3 hackerlab.py forensics fix-png challenge.png` → Détecte l'incohérence CRC32 et calcule la hauteur réelle (ex: 800px au lieu de 200px).
+2. Ouvrez l'image dans un éditeur hexadécimal et appliquez la hauteur pour révéler le flag !
 
-### 🚩 Scénario 2 : Vous faites face à un token JWT sur une application web
-1. `python3 hackerlab.py web jwt-decode "<token>"` → Affiche les données et vérifie si `alg: none` ou les dates d'expiration sont vulnérables.
-2. `python3 hackerlab.py web jwt-forge '{"typ":"JWT"}' '{"user":"admin"}'` → Génère le token d'usurpation d'identité immédiat.
+### 🚩 Scénario 2 : Exploitation d'un Buffer Overflow binaire
+1. `python3 hackerlab.py reverse checksec vuln_bin` → Vérifie si NX ou Canary sont activés.
+2. `python3 hackerlab.py pwn cyclic 100` → Injecte la séquence dans le binaire sous GDB.
+3. `python3 hackerlab.py pwn find 0x41346141` → Obtient l'offset exact pour écraser l'adresse de retour.
+4. `python3 hackerlab.py pwn pack 0x080484b6` → Génère le payload d'adresse Little-Endian.
 
-### 🚩 Scénario 3 : Vous êtes bloqué sur un énoncé de challenge
-1. `python3 hackerlab.py ai analyze -t "Titre" -d "Énoncé complet"` → L'assistant IA vous donne la catégorie exacte, les outils recommandés et la checklist d'investigation ordonnée pour résoudre le challenge.
+### 🚩 Scénario 3 : Challenge Web avec JWT
+1. `python3 hackerlab.py web jwt-decode "<token>"` → Affiche les claims utilisateurs.
+2. `python3 hackerlab.py web jwt-forge '{"typ":"JWT"}' '{"user":"admin","role":"admin"}'` → Génère le token contrefait avec `alg: none`.

@@ -130,23 +130,47 @@ class ForensicsAnalyzer:
         return flags_found
 
     @staticmethod
-    def extract_lsb_text(data_bytes, max_bytes=512):
-        """Extrait les bits de poids faible (LSB) des octets bruts pour repérer un texte caché."""
-        bits = []
-        for b in data_bytes:
-            bits.append(str(b & 1))
-            if len(bits) >= max_bytes * 8:
-                break
+    def fix_png_dimensions(png_bytes, max_dimension=4000):
+        """Résout la vraie hauteur/largeur d'un PNG en bruteforçant le checksum CRC32 du header IHDR."""
+        import zlib
+        if len(png_bytes) < 33 or png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
+            return {"error": "Format non-PNG"}
 
-        # Regroupement en octets
-        bit_str = "".join(bits)
-        chars = []
-        for i in range(0, len(bit_str) - 7, 8):
-            byte_val = int(bit_str[i:i+8], 2)
-            if 32 <= byte_val <= 126 or byte_val in [10, 13]:
-                chars.append(chr(byte_val))
-            else:
-                break # On s'arrête dès que ce n'est plus du texte ASCII
+        # IHDR chunk : offset 12 à 29 (17 bytes: 4 bytes 'IHDR' + 13 bytes data)
+        ihdr_data = png_bytes[12:29]
+        expected_crc = struct.unpack(">I", png_bytes[29:33])[0]
+        cur_w, cur_h = struct.unpack(">II", png_bytes[16:24])
+        bit_depth, color_type, comp, filter_m, interlace = struct.unpack("BBBBB", png_bytes[24:29])
 
-        extracted = "".join(chars)
-        return extracted if len(extracted) >= 4 else ""
+        # Vérification si le CRC actuel est déjà bon
+        current_crc = zlib.crc32(ihdr_data) & 0xffffffff
+        if current_crc == expected_crc:
+            return {"status": "CRC Valide", "width": cur_w, "height": cur_h, "message": "Les dimensions IHDR sont déjà cohérentes."}
+
+        # Bruteforce de la hauteur (scénario le plus courant en CTF)
+        for h in range(1, max_dimension):
+            test_ihdr = b"IHDR" + struct.pack(">II", cur_w, h) + struct.pack("BBBBB", bit_depth, color_type, comp, filter_m, interlace)
+            if (zlib.crc32(test_ihdr) & 0xffffffff) == expected_crc:
+                return {
+                    "status": "Corrigé (Hauteur trouvée)",
+                    "original_width": cur_w,
+                    "original_height": cur_h,
+                    "corrected_width": cur_w,
+                    "corrected_height": h,
+                    "expected_crc": hex(expected_crc)
+                }
+
+        # Bruteforce de la largeur
+        for w in range(1, max_dimension):
+            test_ihdr = b"IHDR" + struct.pack(">II", w, cur_h) + struct.pack("BBBBB", bit_depth, color_type, comp, filter_m, interlace)
+            if (zlib.crc32(test_ihdr) & 0xffffffff) == expected_crc:
+                return {
+                    "status": "Corrigé (Largeur trouvée)",
+                    "original_width": cur_w,
+                    "original_height": cur_h,
+                    "corrected_width": w,
+                    "corrected_height": cur_h,
+                    "expected_crc": hex(expected_crc)
+                }
+
+        return {"error": "Dimensions introuvables dans la plage de recherche"}

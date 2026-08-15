@@ -210,6 +210,119 @@ class ClassicalCiphers:
         return "".join(res)
 
     @staticmethod
+    def rail_fence_decrypt(ciphertext, rails):
+        """Déchiffre un texte chiffré par transposition Rail Fence (zigzag)."""
+        if rails <= 1 or rails >= len(ciphertext):
+            return ciphertext
+
+        # Détermination de la grille
+        fence = [['\n' for _ in range(len(ciphertext))] for _ in range(rails)]
+        row, col = 0, 0
+        down = False
+
+        for _ in range(len(ciphertext)):
+            if row == 0 or row == rails - 1:
+                down = not down
+            fence[row][col] = '*'
+            col += 1
+            row += 1 if down else -1
+
+        idx = 0
+        for r in range(rails):
+            for c in range(len(ciphertext)):
+                if fence[r][c] == '*' and idx < len(ciphertext):
+                    fence[r][c] = ciphertext[idx]
+                    idx += 1
+
+        result = []
+        row, col = 0, 0
+        down = False
+        for _ in range(len(ciphertext)):
+            if row == 0 or row == rails - 1:
+                down = not down
+            if fence[row][col] != '\n':
+                result.append(fence[row][col])
+                col += 1
+            row += 1 if down else -1
+
+        return "".join(result)
+
+    @classmethod
+    def break_rail_fence(cls, ciphertext, max_rails=10):
+        """Teste toutes les hauteurs de rails (2 à max_rails) et classe par score."""
+        candidates = []
+        for r in range(2, min(max_rails + 1, len(ciphertext))):
+            dec = cls.rail_fence_decrypt(ciphertext, r)
+            sc = cls.score_text(dec)
+            candidates.append({"rails": r, "text": dec, "score": round(sc, 2)})
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates
+
+    @staticmethod
+    def affine_decrypt(ciphertext, a, b):
+        """Déchiffre le chiffre Affine : D(y) = a^-1 * (y - b) mod 26."""
+        try:
+            a_inv = RSASolver.modinv(a, 26)
+        except Exception:
+            return ""
+
+        res = []
+        for c in ciphertext:
+            if 'a' <= c <= 'z':
+                y = ord(c) - ord('a')
+                res.append(chr((a_inv * (y - b)) % 26 + ord('a')))
+            elif 'A' <= c <= 'Z':
+                y = ord(c) - ord('A')
+                res.append(chr((a_inv * (y - b)) % 26 + ord('A')))
+            else:
+                res.append(c)
+        return "".join(res)
+
+    @classmethod
+    def break_affine(cls, ciphertext):
+        """Teste toutes les combinaisons de clés valides (a premier avec 26, b entre 0 et 25)."""
+        valid_a = [1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25]
+        candidates = []
+        for a in valid_a:
+            for b in range(26):
+                dec = cls.affine_decrypt(ciphertext, a, b)
+                if dec:
+                    sc = cls.score_text(dec)
+                    if sc > 2.5 or re.search(r"(flag|ctf|hl)", dec, re.IGNORECASE):
+                        candidates.append({"a": a, "b": b, "text": dec, "score": round(sc, 2)})
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates
+
+    @staticmethod
+    def bacon_decrypt(ciphertext):
+        """Déchiffre le code Bacon (A=AAAAA, B=AAAAB...)."""
+        BACON_DICT = {
+            'AAAAA': 'A', 'AAAAB': 'B', 'AAABA': 'C', 'AAABB': 'D', 'AABAA': 'E',
+            'AABAB': 'F', 'AABBA': 'G', 'AABBB': 'H', 'ABAAA': 'I', 'ABAAB': 'K',
+            'ABABA': 'L', 'ABABB': 'M', 'ABBAA': 'N', 'ABBAB': 'O', 'ABBBA': 'P',
+            'ABBBB': 'Q', 'BAAAA': 'R', 'BAAAB': 'S', 'BAABA': 'T', 'BAABB': 'U',
+            'BABAA': 'W', 'BABAB': 'X', 'BABBA': 'Y', 'BABBB': 'Z'
+        }
+        # Nettoyage et conversion vers A/B
+        clean = []
+        for c in ciphertext:
+            if c.isupper():
+                clean.append('B')
+            elif c.islower():
+                clean.append('A')
+            elif c in ['A', 'a', '0']:
+                clean.append('A')
+            elif c in ['B', 'b', '1']:
+                clean.append('B')
+
+        seq = "".join(clean)
+        res = []
+        for i in range(0, len(seq) - 4, 5):
+            chunk = seq[i:i+5]
+            res.append(BACON_DICT.get(chunk, '?'))
+        return "".join(res)
+
+    @staticmethod
     def single_byte_xor(data_bytes):
         """Bruteforce XOR sur 1 octet (0-255) et retourne les meilleurs résultats."""
         candidates = []
@@ -335,17 +448,22 @@ class RSASolver:
         return {"m": m, "plaintext": bytes.fromhex(hex_m).decode(errors="ignore")}
 
     @classmethod
-    def fermat_factorization(cls, n):
-        """Factorisation de Fermat pour p et q très proches."""
-        a = math.isqrt(n)
-        if a * a < n:
-            a += 1
-        b2 = a * a - n
-        while not math.isqrt(b2) ** 2 == b2:
-            a += 1
-            b2 = a * a - n
-            if a > n: return None
-        b = math.isqrt(b2)
-        p = a - b
-        q = a + b
-        return p, q
+    def baby_step_giant_step(cls, g, y, p):
+        """Résout le logarithme discret g^x = y mod p (Algorithme de Shank)."""
+        m = math.isqrt(p) + 1
+        table = {}
+        # Étape 1 : Baby steps (g^(j) mod p)
+        cur = 1
+        for j in range(m):
+            table[cur] = j
+            cur = (cur * g) % p
+
+        # Étape 2 : Giant steps (y * (g^(-m))^i mod p)
+        g_inv_m = pow(cls.modinv(pow(g, m, p), p), 1, p)
+        cur = y
+        for i in range(m):
+            if cur in table:
+                return i * m + table[cur]
+            cur = (cur * g_inv_m) % p
+
+        return None

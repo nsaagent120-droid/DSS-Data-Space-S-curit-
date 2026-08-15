@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
 =============================================================================
-  HackerLab Toolkit (HL-Tool) — Boîte à Outils CTF & IA pour Compétitions
+  HackerLab Toolkit (HL-Tool v2.0) — Boîte à Outils CTF, Scanner & Assistant IA
 =============================================================================
   Auteur      : DSS Security / HackerLab Competition Toolkit
   Description : Suite complète d'outils d'investigation et d'assistance IA :
-                - Cryptographie (Décodeur, César, Vigenère, XOR, Hashes, RSA)
-                - Forensics & Stéganographie (Magic Bytes, Entropie, Flags, Carving)
+                - Scan de Sécurité Réseau & Web (D-Scan v3.0 intégré)
+                - Cryptographie (Décodeur, César, Vigenère, Rail Fence, Affine, Bacon, Hashes, RSA, D-Log)
+                - Forensics & Stéganographie (Magic Bytes, Entropie, PNG CRC Fixer, Flags, Carving)
                 - Reverse Engineering (ELF checksec, Symboles, UPX)
+                - Pwn / Exploitation Math (De Bruijn cyclic pattern, offset finder, p32/p64, badchars)
                 - Sécurité Web (JWT decode/forge, SSTI, Audit de code)
                 - Analyse Réseau & PCAP (Extraction DNS, HTTP, Credentials)
+                - OSINT & Recon (CIDR calculator, Google Dorks, MAC OUI)
+                - Wordlist & Dictionnaires (Mutations Leetspeak CTF)
                 - Assistant IA & Méthodologies CTF (Diagnostic, Workflow, Prompts)
   Usage       : python3 hackerlab.py [module] [commande] [arguments]
                 ou lancer sans argument pour le Mode Interactif !
@@ -19,6 +23,7 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 
 # Importation des modules internes
@@ -28,15 +33,20 @@ try:
     from hackerlab_toolkit.reversing_tools import ELFAnalyzer
     from hackerlab_toolkit.web_tools import JWTTool, SSTIPayloadHelper, CodeAuditor
     from hackerlab_toolkit.pcap_tools import PCAPAnalyzer
+    from hackerlab_toolkit.pwn_tools import PwnHelper
+    from hackerlab_toolkit.osint_tools import OSINTToolkit
+    from hackerlab_toolkit.wordlist_tools import WordlistMutator
     from hackerlab_toolkit.ai_assistant import CTFAIAssistant
 except ImportError:
-    # Si exécuté depuis un autre dossier
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from hackerlab_toolkit.crypto_tools import MultiDecoder, ClassicalCiphers, HashIdentifier, RSASolver
     from hackerlab_toolkit.forensics_tools import ForensicsAnalyzer
     from hackerlab_toolkit.reversing_tools import ELFAnalyzer
     from hackerlab_toolkit.web_tools import JWTTool, SSTIPayloadHelper, CodeAuditor
     from hackerlab_toolkit.pcap_tools import PCAPAnalyzer
+    from hackerlab_toolkit.pwn_tools import PwnHelper
+    from hackerlab_toolkit.osint_tools import OSINTToolkit
+    from hackerlab_toolkit.wordlist_tools import WordlistMutator
     from hackerlab_toolkit.ai_assistant import CTFAIAssistant
 
 class Colors:
@@ -59,28 +69,35 @@ def banner():
   ██╔══██║██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗██║     ██╔══██║██╔══██╗
   ██║  ██║██║  ██║╚██████╗██║ ╚██╗███████╗██║  ██║███████╗██║  ██║██████╔╝
   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝ {Colors.RESET}
-  {Colors.BOLD}{Colors.MAGENTA}⚔️  HACKERLAB CTF TOOLKIT & ASSISTANT IA (v1.0){Colors.RESET}
-  {Colors.DIM}Boîte à outils multi-spécialités & Méthodologies pour Compétitions HackerLab{Colors.RESET}
+  {Colors.BOLD}{Colors.MAGENTA}⚔️  HACKERLAB CTF TOOLKIT & ASSISTANT IA (v2.0 ULTIMATE){Colors.RESET}
+  {Colors.DIM}Boîte à outils multi-spécialités + Scanner de Sécurité Intégré (D-Scan v3.0){Colors.RESET}
 """
     print(art)
 
 # =============================================================================
 # GESTIONNAIRES DE COMMANDES
 # =============================================================================
+def handle_scan(args):
+    """Exécute le scanner de sécurité complet scan.py."""
+    scan_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scan.py")
+    cmd = [sys.executable, scan_script] + args.scan_args
+    try:
+        subprocess.run(cmd)
+    except Exception as e:
+        print(f"{Colors.RED}[!] Erreur lors de l'exécution du scanner : {e}{Colors.RESET}")
+
 def handle_crypto(args):
     if args.action == "decode":
         text = " ".join(args.text)
-        print(f"\n{Colors.CYAN}[*] Tentative de décodage multi-formats pour :{Colors.RESET} {text}\n")
+        print(f"\n{Colors.CYAN}[*] Décodage multi-formats pour :{Colors.RESET} {text}\n")
         results = MultiDecoder.decode_all(text)
-        if not results:
-            print(f"{Colors.YELLOW}[!] Aucun format standard décodé.{Colors.RESET}")
         for fmt, val in results.items():
             print(f"  {Colors.BOLD}{Colors.GREEN}[+] {fmt:<16}:{Colors.RESET} {val}")
         print()
 
     elif args.action == "break-caesar":
         text = " ".join(args.text)
-        print(f"\n{Colors.CYAN}[*] Analyse des 25 décalages César pour :{Colors.RESET} {text}\n")
+        print(f"\n{Colors.CYAN}[*] Analyse César pour :{Colors.RESET} {text}\n")
         candidates = ClassicalCiphers.break_caesar(text)
         print(f"{'DÉCALAGE':<12} {'SCORE':<8} {'TEXTE DÉCHIFFRÉ'}")
         print("-" * 65)
@@ -90,10 +107,35 @@ def handle_crypto(args):
         print()
 
     elif args.action == "vigenere":
-        ciphertext = args.ciphertext
-        key = args.key
-        decrypted = ClassicalCiphers.vigenere_decrypt(ciphertext, key)
-        print(f"\n{Colors.GREEN}[+] Déchiffrement Vigenère (Clé: {key}) :{Colors.RESET} {Colors.BOLD}{decrypted}{Colors.RESET}\n")
+        decrypted = ClassicalCiphers.vigenere_decrypt(args.ciphertext, args.key)
+        print(f"\n{Colors.GREEN}[+] Vigenère (Clé: {args.key}) :{Colors.RESET} {Colors.BOLD}{decrypted}{Colors.RESET}\n")
+
+    elif args.action == "rail-fence":
+        if args.rails:
+            decrypted = ClassicalCiphers.rail_fence_decrypt(args.ciphertext, args.rails)
+            print(f"\n{Colors.GREEN}[+] Rail Fence ({args.rails} rails) :{Colors.RESET} {Colors.BOLD}{decrypted}{Colors.RESET}\n")
+        else:
+            candidates = ClassicalCiphers.break_rail_fence(args.ciphertext)
+            print(f"\n{Colors.CYAN}[*] Bruteforce Rail Fence :{Colors.RESET}\n")
+            for c in candidates[:5]:
+                print(f"  {Colors.GREEN}[+] {c['rails']} rails (Score: {c['score']}) :{Colors.RESET} {c['text']}")
+            print()
+
+    elif args.action == "affine":
+        if args.a and args.b is not None:
+            decrypted = ClassicalCiphers.affine_decrypt(args.ciphertext, args.a, args.b)
+            print(f"\n{Colors.GREEN}[+] Chiffre Affine (a={args.a}, b={args.b}) :{Colors.RESET} {Colors.BOLD}{decrypted}{Colors.RESET}\n")
+        else:
+            candidates = ClassicalCiphers.break_affine(args.ciphertext)
+            print(f"\n{Colors.CYAN}[*] Bruteforce Affine :{Colors.RESET}\n")
+            for c in candidates[:5]:
+                print(f"  {Colors.GREEN}[+] a={c['a']}, b={c['b']} :{Colors.RESET} {Colors.BOLD}{c['text']}{Colors.RESET}")
+            print()
+
+    elif args.action == "bacon":
+        text = " ".join(args.text)
+        decrypted = ClassicalCiphers.bacon_decrypt(text)
+        print(f"\n{Colors.GREEN}[+] Décodage Code Bacon :{Colors.RESET} {Colors.BOLD}{decrypted}{Colors.RESET}\n")
 
     elif args.action == "xor":
         hex_data = args.hex_data.replace(" ", "").replace("0x", "")
@@ -105,11 +147,8 @@ def handle_crypto(args):
         print()
 
     elif args.action == "hash-id":
-        h = args.hash_str
-        matches = HashIdentifier.identify(h)
-        print(f"\n{Colors.CYAN}[*] Identification du hash :{Colors.RESET} {h}\n")
-        if not matches:
-            print(f"{Colors.YELLOW}[!] Type de hash non reconnu.{Colors.RESET}")
+        matches = HashIdentifier.identify(args.hash_str)
+        print(f"\n{Colors.CYAN}[*] Identification du hash :{Colors.RESET} {args.hash_str}\n")
         for m in matches:
             print(f"  {Colors.GREEN}[+] Format : {Colors.BOLD}{m['name']}{Colors.RESET} — {m['desc']}")
         print()
@@ -120,6 +159,14 @@ def handle_crypto(args):
         print(f"  {Colors.GREEN}[+] Modulus (n)       :{Colors.RESET} {res['n']}")
         print(f"  {Colors.GREEN}[+] Clé privée (d)    :{Colors.RESET} {res['d']}")
         print(f"  {Colors.GREEN}[+] Message déchiffré :{Colors.RESET} {Colors.BOLD}{Colors.YELLOW}{res['plaintext']}{Colors.RESET}\n")
+
+    elif args.action == "dlog":
+        res = RSASolver.baby_step_giant_step(args.g, args.y, args.p)
+        print(f"\n{Colors.CYAN}=== LOGARITHME DISCRET (g^x = y mod p) ==={Colors.RESET}")
+        if res is not None:
+            print(f"  {Colors.GREEN}[+] Valeur trouvée x = {Colors.BOLD}{Colors.YELLOW}{res}{Colors.RESET}\n")
+        else:
+            print(f"  {Colors.RED}[!] Pas de solution trouvée dans le corps fini.{Colors.RESET}\n")
 
 def handle_forensics(args):
     filepath = args.file
@@ -157,13 +204,10 @@ def handle_forensics(args):
         print()
 
     elif args.action == "strings":
-        min_l = args.min_len
-        strings = ForensicsAnalyzer.extract_strings(data, min_len=min_l)
-        print(f"\n{Colors.CYAN}[*] Extraction de {len(strings)} chaînes (longueur >= {min_l}) :{Colors.RESET}\n")
+        strings = ForensicsAnalyzer.extract_strings(data, min_len=args.min_len)
+        print(f"\n{Colors.CYAN}[*] Extraction de {len(strings)} chaînes (longueur >= {args.min_len}) :{Colors.RESET}\n")
         for s in strings[:30]:
             print(f"  {Colors.DIM}{s['offset_hex']:<8}{Colors.RESET} {s['string']}")
-        if len(strings) > 30:
-            print(f"  {Colors.YELLOW}... ({len(strings) - 30} autres chaînes omises){Colors.RESET}")
         print()
 
     elif args.action == "flags":
@@ -175,6 +219,19 @@ def handle_forensics(args):
         else:
             print(f"\n{Colors.YELLOW}[!] Aucun pattern de flag standard détecté.{Colors.RESET}")
         print()
+
+    elif args.action == "fix-png":
+        res = ForensicsAnalyzer.fix_png_dimensions(data)
+        print(f"\n{Colors.CYAN}=== RÉPARATION DIMENSIONS PNG IHDR (CRC32) ==={Colors.RESET}")
+        if "error" in res:
+            print(f"  {Colors.RED}[!] {res['error']}{Colors.RESET}\n")
+        else:
+            print(f"  {Colors.GREEN}[+] Statut :{Colors.RESET} {res['status']}")
+            if "corrected_height" in res:
+                print(f"  {Colors.GREEN}[+] Dimensions Réelles :{Colors.RESET} {res['corrected_width']} x {Colors.BOLD}{Colors.YELLOW}{res['corrected_height']}{Colors.RESET} px")
+                print(f"  💡 Modifiez les octets du fichier à l'offset 0x14 avec la hauteur : {hex(res['corrected_height'])}\n")
+            else:
+                print(f"  {Colors.GREEN}[+] Dimensions :{Colors.RESET} {res.get('width')} x {res.get('height')} px ({res.get('message')})\n")
 
 def handle_reverse(args):
     filepath = args.file
@@ -195,7 +252,6 @@ def handle_reverse(args):
         prot = res["protections"]
         print(f"\n{Colors.CYAN}=== CHECKSEC & INFORMATIONS ELF : {os.path.basename(filepath)} ==={Colors.RESET}")
         print(f"  {Colors.GREEN}[+] Architecture :{Colors.RESET} {hdr['class']} ({hdr['machine']}) — {hdr['endian']}")
-        print(f"  {Colors.GREEN}[+] Type         :{Colors.RESET} {hdr['type']}")
         print(f"  {Colors.GREEN}[+] Entry Point  :{Colors.RESET} {hdr['entry_point']}")
         print("-" * 65)
 
@@ -205,10 +261,10 @@ def handle_reverse(args):
         rel_col = Colors.GREEN if prot["relro"]["level"] == "Full RELRO" else (Colors.YELLOW if prot["relro"]["level"] == "Partial RELRO" else Colors.RED)
 
         print(f"  • Canary     : {can_col}{'Actif (Stack protection)' if prot['canary']['enabled'] else 'Désactivé'}{Colors.RESET}")
-        print(f"  • NX         : {nx_col}{'Actif (Stack non-exécutable)' if prot['nx']['enabled'] else 'Désactivé (Stack exécutable)'}{Colors.RESET}")
+        print(f"  • NX         : {nx_col}{'Actif (Stack non-exécutable)' if prot['nx']['enabled'] else 'Désactivé'}{Colors.RESET}")
         print(f"  • PIE        : {pie_col}{'Actif (ASLR binaire)' if prot['pie']['enabled'] else 'Désactivé'}{Colors.RESET}")
         print(f"  • RELRO      : {rel_col}{prot['relro']['level']}{Colors.RESET}")
-        print(f"  • Stripped   : {Colors.CYAN}{'Oui (Symboles retirés)' if prot['stripped']['status'] else 'Non (Symboles présents)'}{Colors.RESET}")
+        print(f"  • Stripped   : {Colors.CYAN}{'Oui' if prot['stripped']['status'] else 'Non'}{Colors.RESET}")
 
         packers = ELFAnalyzer.detect_packers(data)
         if packers:
@@ -218,19 +274,50 @@ def handle_reverse(args):
 
     elif args.action == "symbols":
         syms = ELFAnalyzer.extract_interesting_symbols(data)
-        print(f"\n{Colors.CYAN}[*] Symboles et fonctions clés détectés dans {filepath} :{Colors.RESET}\n")
+        print(f"\n{Colors.CYAN}[*] Symboles et fonctions clés dans {filepath} :{Colors.RESET}\n")
         for s in syms:
             print(f"  {Colors.GREEN}↳{Colors.RESET} {Colors.BOLD}{s}{Colors.RESET}")
         print()
 
+def handle_pwn(args):
+    if args.action == "cyclic":
+        pattern = PwnHelper.cyclic(args.length)
+        print(f"\n{Colors.GREEN}[+] Séquence cyclique De Bruijn ({args.length} octets) :{Colors.RESET}\n{Colors.BOLD}{pattern}{Colors.RESET}\n")
+
+    elif args.action == "find":
+        offset = PwnHelper.cyclic_find(args.value)
+        print(f"\n{Colors.CYAN}=== CALCULATEUR D'OFFSET (DE BRUIJN) ==={Colors.RESET}")
+        if offset != -1:
+            print(f"  {Colors.GREEN}[+] Offset exact trouvé :{Colors.RESET} {Colors.BOLD}{Colors.YELLOW}{offset}{Colors.RESET} octets (0x{offset:02x})\n")
+        else:
+            print(f"  {Colors.RED}[!] Motif introuvable dans la séquence.{Colors.RESET}\n")
+
+    elif args.action == "pack":
+        val = int(args.value, 16) if args.value.startswith("0x") else int(args.value)
+        p32_hex = PwnHelper.p32(val).hex()
+        p64_hex = PwnHelper.p64(val).hex()
+        print(f"\n{Colors.CYAN}=== PACKING OCTETS (LITTLE-ENDIAN) ==={Colors.RESET}")
+        print(f"  {Colors.GREEN}[+] p32({hex(val)}) :{Colors.RESET} \\x" + "\\x".join(p32_hex[i:i+2] for i in range(0, len(p32_hex), 2)))
+        print(f"  {Colors.GREEN}[+] p64({hex(val)}) :{Colors.RESET} \\x" + "\\x".join(p64_hex[i:i+2] for i in range(0, len(p64_hex), 2)) + "\n")
+
+    elif args.action == "badchars":
+        hex_data = args.hex_data.replace(" ", "").replace("0x", "").replace("\\x", "")
+        raw_b = bytes.fromhex(hex_data)
+        bads = PwnHelper.check_badchars(raw_b)
+        print(f"\n{Colors.CYAN}=== VÉRIFICATEUR DE BAD CHARACTERS ==={Colors.RESET}")
+        if not bads:
+            print(f"  {Colors.GREEN}[+] Aucun bad character standard (\\x00, \\x0a, \\x0d) détecté.{Colors.RESET}\n")
+        else:
+            for b in bads:
+                print(f"  ⚠️ {Colors.RED}Badchar détecté à l'offset {b['offset']} : {b['byte']}{Colors.RESET}")
+            print()
+
 def handle_web(args):
     if args.action == "jwt-decode":
-        token = args.token
-        res = JWTTool.decode(token)
+        res = JWTTool.decode(args.token)
         if "error" in res:
             print(f"{Colors.RED}[!] {res['error']}{Colors.RESET}")
             return
-
         print(f"\n{Colors.CYAN}=== ANALYSE JSON WEB TOKEN (JWT) ==={Colors.RESET}")
         print(f"  {Colors.GREEN}[+] Header :{Colors.RESET} {json.dumps(res['header'], indent=2)}")
         print(f"  {Colors.GREEN}[+] Payload:{Colors.RESET} {json.dumps(res['payload'], indent=2)}")
@@ -247,13 +334,13 @@ def handle_web(args):
             h = json.loads(args.header)
             p = json.loads(args.payload)
             forged = JWTTool.forge_none_alg(h, p)
-            print(f"\n{Colors.GREEN}[+] JWT forgé avec l'algorithme 'none' :{Colors.RESET}\n{Colors.BOLD}{forged}{Colors.RESET}\n")
+            print(f"\n{Colors.GREEN}[+] JWT forgé (alg: none) :{Colors.RESET}\n{Colors.BOLD}{forged}{Colors.RESET}\n")
         except Exception as e:
-            print(f"{Colors.RED}[!] Erreur de parsing JSON : {e}{Colors.RESET}")
+            print(f"{Colors.RED}[!] Erreur JSON : {e}{Colors.RESET}")
 
     elif args.action == "ssti":
         payloads = SSTIPayloadHelper.get_payloads()
-        print(f"\n{Colors.CYAN}=== PAYLOADS DE TEST SSTI (SERVER-SIDE TEMPLATE INJECTION) ==={Colors.RESET}\n")
+        print(f"\n{Colors.CYAN}=== PAYLOADS SSTI (TEMPLATE INJECTION) ==={Colors.RESET}\n")
         for engine, plist in payloads.items():
             print(f"{Colors.BOLD}{Colors.YELLOW}[ {engine} ]{Colors.RESET}")
             for p in plist:
@@ -274,16 +361,16 @@ def handle_pcap(args):
         print(f"{Colors.RED}[!] {res['error']}{Colors.RESET}")
         return
 
-    print(f"\n{Colors.CYAN}=== ANALYSE DE CAPTURE PCAP : {os.path.basename(filepath)} ({res['total_packets']} paquets) ==={Colors.RESET}")
-    print(f"  {Colors.GREEN}[+] Répartition des protocoles :{Colors.RESET} {res['protocols']}")
+    print(f"\n{Colors.CYAN}=== ANALYSE PCAP : {os.path.basename(filepath)} ({res['total_packets']} paquets) ==={Colors.RESET}")
+    print(f"  {Colors.GREEN}[+] Protocoles :{Colors.RESET} {res['protocols']}")
 
     if res["dns_queries"]:
-        print(f"\n  {Colors.CYAN}[*] Requêtes DNS extraites ({len(res['dns_queries'])}) :{Colors.RESET}")
+        print(f"\n  {Colors.CYAN}[*] Requêtes DNS ({len(res['dns_queries'])}) :{Colors.RESET}")
         for d in res["dns_queries"]:
             print(f"      ↳ {d}")
 
     if res["http_requests"]:
-        print(f"\n  {Colors.CYAN}[*] Requêtes HTTP interceptées :{Colors.RESET}")
+        print(f"\n  {Colors.CYAN}[*] Requêtes HTTP :{Colors.RESET}")
         for r in res["http_requests"]:
             print(f"      ↳ {r}")
 
@@ -298,12 +385,39 @@ def handle_pcap(args):
             print(f"      ↳ {Colors.BOLD}{Colors.GREEN}{fl}{Colors.RESET}")
     print()
 
+def handle_osint(args):
+    if args.action == "cidr":
+        res = OSINTToolkit.calculate_cidr(args.cidr_str)
+        print(f"\n{Colors.CYAN}=== CALCULATEUR DE SOUS-RÉSEAU CIDR ==={Colors.RESET}")
+        for k, v in res.items():
+            print(f"  {Colors.GREEN}[+] {k:<22}:{Colors.RESET} {v}")
+        print()
+
+    elif args.action == "dorks":
+        dorks = OSINTToolkit.generate_dorks(args.domain)
+        print(f"\n{Colors.CYAN}=== GOOGLE DORKS POUR : {args.domain} ==={Colors.RESET}\n")
+        for d in dorks:
+            print(f"  {Colors.BOLD}{Colors.YELLOW}[ {d['name']} ]{Colors.RESET}")
+            print(f"  ↳ {d['query']}\n")
+
+    elif args.action == "mac":
+        res = OSINTToolkit.lookup_mac_oui(args.mac)
+        print(f"\n{Colors.CYAN}=== RECHERCHE CONSTRUCTEUR OUI (MAC) ==={Colors.RESET}")
+        print(f"  {Colors.GREEN}[+] MAC       :{Colors.RESET} {res.get('mac')}")
+        print(f"  {Colors.GREEN}[+] OUI       :{Colors.RESET} {res.get('oui')}")
+        print(f"  {Colors.GREEN}[+] Fabricant :{Colors.RESET} {Colors.BOLD}{res.get('vendor')}{Colors.RESET}\n")
+
+def handle_wordlist(args):
+    if args.action == "mutate":
+        mutations = WordlistMutator.mutate(args.word, max_variants=args.count)
+        print(f"\n{Colors.CYAN}=== MUTATIONS CTF LEETSPEAK ({len(mutations)} variantes) ==={Colors.RESET}\n")
+        for m in mutations:
+            print(f"  {m}")
+        print()
+
 def handle_ai(args):
     if args.action == "analyze":
-        title = args.title
-        desc = args.description or ""
-        analysis = CTFAIAssistant.analyze_challenge(title, desc)
-
+        analysis = CTFAIAssistant.analyze_challenge(args.title, args.description or "")
         print(f"\n{Colors.CYAN}=== ASSISTANT IA CTF : ANALYSE DU CHALLENGE ==={Colors.RESET}")
         print(f"  {Colors.GREEN}[+] Catégorie Détectée :{Colors.RESET} {Colors.BOLD}{analysis['detected_category']}{Colors.RESET} (Confiance : {analysis['confidence']})")
         print(f"  {Colors.GREEN}[+] Outils Recommandés  :{Colors.RESET} {', '.join(analysis['recommended_tools'])}")
@@ -313,9 +427,7 @@ def handle_ai(args):
         print()
 
     elif args.action == "prompt":
-        cat = args.category
-        context = args.context
-        p = CTFAIAssistant.generate_ai_prompt(cat, context)
+        p = CTFAIAssistant.generate_ai_prompt(args.category, args.context)
         print(f"\n{Colors.CYAN}=== PROMPT OPTIMISÉ POUR LLM (CLAUDE / CHATGPT / OLLAMA) ==={Colors.RESET}\n")
         print(p)
 
@@ -334,19 +446,28 @@ def handle_ai(args):
 def interactive_menu():
     banner()
     while True:
-        print(f"{Colors.BOLD}{Colors.CYAN}=== MENU PRINCIPAL HACKERLAB TOOLKIT ==={Colors.RESET}")
-        print(f"  {Colors.GREEN}1.{Colors.RESET} 🔐 Cryptographie (Décodeur multi-formats, César, Vigenère, XOR, Hashes, RSA)")
-        print(f"  {Colors.GREEN}2.{Colors.RESET} 🔬 Forensics & Stégano (Magic Bytes, Entropie, Extraction de flags)")
-        print(f"  {Colors.GREEN}3.{Colors.RESET} ⚙️  Reverse Engineering (ELF checksec, Symboles, UPX)")
-        print(f"  {Colors.GREEN}4.{Colors.RESET} 🌐 Sécurité Web (JWT decode/forge, Payloads SSTI)")
-        print(f"  {Colors.GREEN}5.{Colors.RESET} 📡 Analyse Réseau & PCAP (Extraction DNS, HTTP, Mots de passe)")
-        print(f"  {Colors.GREEN}6.{Colors.RESET} 🤖 Assistant IA & Méthodologie CTF (Conseils de résolution, Prompts)")
+        print(f"{Colors.BOLD}{Colors.CYAN}=== MENU PRINCIPAL HACKERLAB TOOLKIT v2.0 ==={Colors.RESET}")
+        print(f"  {Colors.GREEN}1.{Colors.RESET} 🛡️  Scanner de Sécurité Intégré (D-Scan v3.0 : Ports, WAF, CMS, Geo, SSL)")
+        print(f"  {Colors.GREEN}2.{Colors.RESET} 🔐 Cryptographie (Décodeur, César, Vigenère, Rail Fence, Affine, RSA, DLog)")
+        print(f"  {Colors.GREEN}3.{Colors.RESET} 🔬 Forensics & Stégano (Magic Bytes, Entropie, PNG CRC Fixer, Flags)")
+        print(f"  {Colors.GREEN}4.{Colors.RESET} ⚙️  Reverse Engineering (ELF checksec, Symboles, UPX)")
+        print(f"  {Colors.GREEN}5.{Colors.RESET} 💥 Pwn & Buffer Overflow (Cyclic De Bruijn, Offset finder, p32/p64)")
+        print(f"  {Colors.GREEN}6.{Colors.RESET} 🌐 Sécurité Web (JWT decode/forge, Payloads SSTI)")
+        print(f"  {Colors.GREEN}7.{Colors.RESET} 📡 Analyse Réseau & PCAP (Extraction DNS, HTTP, Mots de passe)")
+        print(f"  {Colors.GREEN}8.{Colors.RESET} 🌍 OSINT & Dictionnaires (CIDR, Google Dorks, OUI MAC, Leetspeak)")
+        print(f"  {Colors.GREEN}9.{Colors.RESET} 🤖 Assistant IA & Méthodologie CTF (Conseils de résolution, Prompts LLM)")
         print(f"  {Colors.RED}0.{Colors.RESET} Quitter\n")
 
-        choice = input(f"{Colors.BOLD}Choisissez une option [0-6] > {Colors.RESET}").strip()
+        choice = input(f"{Colors.BOLD}Choisissez une option [0-9] > {Colors.RESET}").strip()
 
         if choice == "1":
-            print(f"\n{Colors.BOLD}--- MODULE CRYPTOGRAPHIE ---{Colors.RESET}")
+            target = input("Entrez la cible à scanner (IP ou domaine) > ").strip()
+            if target:
+                scan_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scan.py")
+                subprocess.run([sys.executable, scan_script, "-t", target, "-A", "--html", f"rapport_{target}.html"])
+            input("\nAppuyez sur Entrée pour continuer...")
+
+        elif choice == "2":
             sub = input("Entrez le texte ou hash à analyser > ").strip()
             if sub:
                 results = MultiDecoder.decode_all(sub)
@@ -358,7 +479,7 @@ def interactive_menu():
                         print(f"  [+] Hash potentiel : {h['name']} ({h['desc']})")
             input("\nAppuyez sur Entrée pour continuer...")
 
-        elif choice == "2":
+        elif choice == "3":
             fpath = input("Chemin du fichier à analyser en forensics > ").strip()
             if os.path.exists(fpath):
                 with open(fpath, "rb") as f:
@@ -375,7 +496,7 @@ def interactive_menu():
                 print("Fichier introuvable.")
             input("\nAppuyez sur Entrée pour continuer...")
 
-        elif choice == "3":
+        elif choice == "4":
             fpath = input("Chemin du binaire ELF à analyser > ").strip()
             if os.path.exists(fpath):
                 with open(fpath, "rb") as f:
@@ -388,14 +509,21 @@ def interactive_menu():
                 print("Fichier introuvable.")
             input("\nAppuyez sur Entrée pour continuer...")
 
-        elif choice == "4":
+        elif choice == "5":
+            val = input("Valeur de crash pour trouver l'offset (ex: 'laab' ou 0x61616162) > ").strip()
+            if val:
+                offset = PwnHelper.cyclic_find(val)
+                print(f"  [+] Offset trouvé : {offset} octets")
+            input("\nAppuyez sur Entrée pour continuer...")
+
+        elif choice == "6":
             token = input("Entrez le token JWT à inspecter > ").strip()
             if token:
                 res = JWTTool.decode(token)
                 print(json.dumps(res, indent=2))
             input("\nAppuyez sur Entrée pour continuer...")
 
-        elif choice == "5":
+        elif choice == "7":
             pcap = input("Chemin du fichier PCAP > ").strip()
             if os.path.exists(pcap):
                 with open(pcap, "rb") as f:
@@ -406,7 +534,17 @@ def interactive_menu():
                 print("Fichier introuvable.")
             input("\nAppuyez sur Entrée pour continuer...")
 
-        elif choice == "6":
+        elif choice == "8":
+            cidr = input("Sous-réseau CIDR (ex: 192.168.1.0/24) ou domaine pour Google Dorks > ").strip()
+            if "/" in cidr:
+                print(json.dumps(OSINTToolkit.calculate_cidr(cidr), indent=2))
+            elif cidr:
+                dorks = OSINTToolkit.generate_dorks(cidr)
+                for d in dorks:
+                    print(f"  [ {d['name']} ] -> {d['query']}")
+            input("\nAppuyez sur Entrée pour continuer...")
+
+        elif choice == "9":
             title = input("Titre du challenge CTF > ").strip()
             desc = input("Description ou indices du challenge > ").strip()
             an = CTFAIAssistant.analyze_challenge(title, desc)
@@ -418,7 +556,7 @@ def interactive_menu():
             input("\nAppuyez sur Entrée pour continuer...")
 
         elif choice == "0":
-            print("Au revoir et bonne chance pour le HackerLab !")
+            print("Au revoir et bonne compétition HackerLab !")
             break
         print("\n" + "="*50 + "\n")
 
@@ -431,83 +569,143 @@ def main():
         return
 
     parser = argparse.ArgumentParser(
-        description="HackerLab Toolkit — Suite d'outils CTF multi-spécialités & Assistant IA.",
+        description="HackerLab Toolkit (v2.0) — Suite d'outils CTF multi-spécialités, Scanner & Assistant IA.",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
     subparsers = parser.add_subparsers(dest="module", help="Module d'outils à exécuter")
 
-    # 1. Module Crypto
+    # 1. Module Scanner Intégré
+    scan_p = subparsers.add_parser("scan", help="Lancer le scanner de sécurité réseau & web D-Scan v3.0")
+    scan_p.add_argument("scan_args", nargs=argparse.REMAINDER, help="Arguments transmis à scan.py (ex: -t cible.com -A)")
+
+    # 2. Module Crypto
     crypto_p = subparsers.add_parser("crypto", help="Outils Cryptographiques & Chiffres classiques")
     crypto_sub = crypto_p.add_subparsers(dest="action")
     
     p_dec = crypto_sub.add_parser("decode", help="Décodage multi-formats (Base64, Hex, Binaire, Morse, ROT13...)")
     p_dec.add_argument("text", nargs="+", help="Texte à décoder")
     
-    p_caesar = crypto_sub.add_parser("break-caesar", help="Casser un chiffre de César en testant les 25 décalages")
+    p_caesar = crypto_sub.add_parser("break-caesar", help="Casser un chiffre de César")
     p_caesar.add_argument("text", nargs="+", help="Texte chiffré")
 
-    p_vig = crypto_sub.add_parser("vigenere", help="Déchiffrer un texte avec le chiffre de Vigenère")
+    p_vig = crypto_sub.add_parser("vigenere", help="Déchiffrer avec Vigenère")
     p_vig.add_argument("ciphertext", help="Texte chiffré")
     p_vig.add_argument("key", help="Clé secrète")
+
+    p_rail = crypto_sub.add_parser("rail-fence", help="Déchiffrer ou casser un Rail Fence")
+    p_rail.add_argument("ciphertext", help="Texte chiffré")
+    p_rail.add_argument("-r", "--rails", type=int, help="Nombre de rails (optionnel)")
+
+    p_aff = crypto_sub.add_parser("affine", help="Déchiffrer ou casser un chiffre Affine")
+    p_aff.add_argument("ciphertext", help="Texte chiffré")
+    p_aff.add_argument("-a", type=int, help="Coefficient a")
+    p_aff.add_argument("-b", type=int, help="Décalage b")
+
+    p_bac = crypto_sub.add_parser("bacon", help="Déchiffrer le code Bacon")
+    p_bac.add_argument("text", nargs="+", help="Texte Bacon (A/B ou Maj/Min)")
 
     p_xor = crypto_sub.add_parser("xor", help="Bruteforce XOR sur 1 octet")
     p_xor.add_argument("hex_data", help="Données en chaîne hexadécimale")
 
     p_hash = crypto_sub.add_parser("hash-id", help="Identifier le type d'un hash")
-    p_hash.add_argument("hash_str", help="Chaîne du hash à analyser")
+    p_hash.add_argument("hash_str", help="Chaîne du hash")
 
-    p_rsa = crypto_sub.add_parser("rsa-pq", help="Résoudre RSA connaissant p, q, e et le ciphertext c")
+    p_rsa = crypto_sub.add_parser("rsa-pq", help="Résoudre RSA connaissant p, q, e et c")
     p_rsa.add_argument("-p", type=int, required=True, help="Nombre premier p")
     p_rsa.add_argument("-q", type=int, required=True, help="Nombre premier q")
-    p_rsa.add_argument("-e", type=int, default=65537, help="Exposant public e (défaut: 65537)")
+    p_rsa.add_argument("-e", type=int, default=65537, help="Exposant public e")
     p_rsa.add_argument("-c", type=int, required=True, help="Ciphertext c")
 
-    # 2. Module Forensics
-    for_p = subparsers.add_parser("forensics", help="Outils d'investigation Forensics & Stéganographie")
+    p_dlog = crypto_sub.add_parser("dlog", help="Résoudre le logarithme discret (g^x = y mod p)")
+    p_dlog.add_argument("-g", type=int, required=True, help="Base g")
+    p_dlog.add_argument("-y", type=int, required=True, help="Résultat y")
+    p_dlog.add_argument("-p", type=int, required=True, help="Modulo premier p")
+
+    # 3. Module Forensics
+    for_p = subparsers.add_parser("forensics", help="Outils Forensics & Stéganographie")
     for_sub = for_p.add_subparsers(dest="action")
 
     p_finfo = for_sub.add_parser("info", help="Inspection complète : Magic bytes, entropie, carving et flags")
-    p_finfo.add_argument("file", help="Chemin du fichier à analyser")
+    p_finfo.add_argument("file", help="Chemin du fichier")
 
-    p_fstr = for_sub.add_parser("strings", help="Extraire les chaînes imprimables d'un fichier")
+    p_fstr = for_sub.add_parser("strings", help="Extraire les chaînes imprimables")
     p_fstr.add_argument("file", help="Chemin du fichier")
-    p_fstr.add_argument("-n", "--min-len", type=int, default=4, help="Longueur minimale de chaîne (défaut: 4)")
+    p_fstr.add_argument("-n", "--min-len", type=int, default=4, help="Longueur minimale")
 
     p_fflag = for_sub.add_parser("flags", help="Recherche automatique de motifs de flags CTF")
     p_fflag.add_argument("file", help="Chemin du fichier")
 
-    # 3. Module Reverse
+    p_fpng = for_sub.add_parser("fix-png", help="Résoudre les vraies dimensions PNG d'après le CRC32 IHDR")
+    p_fpng.add_argument("file", help="Chemin du fichier PNG corrompu")
+
+    # 4. Module Reverse
     rev_p = subparsers.add_parser("reverse", help="Outils de Reverse Engineering & Binaire")
     rev_sub = rev_p.add_subparsers(dest="action")
 
-    p_rcheck = rev_sub.add_parser("checksec", help="Vérifier les protections ELF (NX, PIE, Canary, RELRO)")
+    p_rcheck = rev_sub.add_parser("checksec", help="Vérifier les protections ELF")
     p_rcheck.add_argument("file", help="Chemin du binaire ELF")
 
     p_rsym = rev_sub.add_parser("symbols", help="Extraire les symboles et fonctions clés")
     p_rsym.add_argument("file", help="Chemin du binaire")
 
-    # 4. Module Web
+    # 5. Module Pwn
+    pwn_p = subparsers.add_parser("pwn", help="Outils Pwn & Buffer Overflow Math")
+    pwn_sub = pwn_p.add_subparsers(dest="action")
+
+    p_pcyc = pwn_sub.add_parser("cyclic", help="Générer une séquence cyclique de De Bruijn")
+    p_pcyc.add_argument("length", type=int, default=100, nargs="?", help="Longueur de la séquence (défaut: 100)")
+
+    p_pfind = pwn_sub.add_parser("find", help="Trouver l'offset exact dans la séquence cyclique")
+    p_pfind.add_argument("value", help="Valeur hexadécimale (0x61616162) ou chaîne ('baaa')")
+
+    p_ppack = pwn_sub.add_parser("pack", help="Convertir un entier en octets Little-Endian (p32 / p64)")
+    p_ppack.add_argument("value", help="Adresse ou valeur (ex: 0x080484b6)")
+
+    p_pbad = pwn_sub.add_parser("badchars", help="Identifier les bad characters dans une séquence hexadécimale")
+    p_pbad.add_argument("hex_data", help="Séquence d'octets en hexadécimal")
+
+    # 6. Module Web
     web_p = subparsers.add_parser("web", help="Outils de Sécurité Web & JWT")
     web_sub = web_p.add_subparsers(dest="action")
 
-    p_wjwt = web_sub.add_parser("jwt-decode", help="Décode un JSON Web Token sans vérification")
-    p_wjwt.add_argument("token", help="Token JWT complet")
+    p_wjwt = web_sub.add_parser("jwt-decode", help="Décode un JWT sans vérification")
+    p_wjwt.add_argument("token", help="Token JWT")
 
-    p_wforge = web_sub.add_parser("jwt-forge", help="Forge un JWT avec l'algorithme 'none'")
-    p_wforge.add_argument("header", help="Header JSON (ex: '{\"typ\":\"JWT\"}')")
-    p_wforge.add_argument("payload", help="Payload JSON (ex: '{\"user\":\"admin\"}')")
+    p_wforge = web_sub.add_parser("jwt-forge", help="Forge un JWT non signé (alg: none)")
+    p_wforge.add_argument("header", help="Header JSON")
+    p_wforge.add_argument("payload", help="Payload JSON")
 
-    web_sub.add_parser("ssti", help="Afficher les payloads de test SSTI (Jinja2, Twig, ERB)")
+    web_sub.add_parser("ssti", help="Afficher les payloads de test SSTI")
 
-    # 5. Module PCAP
+    # 7. Module PCAP
     pcap_p = subparsers.add_parser("pcap", help="Analyseur de captures réseau PCAP")
     pcap_sub = pcap_p.add_subparsers(dest="action")
 
-    p_pan = pcap_sub.add_parser("analyze", help="Analyser une capture PCAP (protocoles, DNS, HTTP, identifiants)")
+    p_pan = pcap_sub.add_parser("analyze", help="Analyser une capture PCAP")
     p_pan.add_argument("file", help="Chemin du fichier .pcap")
 
-    # 6. Module Assistant IA
+    # 8. Module OSINT & Wordlist
+    osint_p = subparsers.add_parser("osint", help="Outils OSINT & Réseau")
+    osint_sub = osint_p.add_subparsers(dest="action")
+
+    p_ocidr = osint_sub.add_parser("cidr", help="Calculer les plages d'un sous-réseau CIDR")
+    p_ocidr.add_argument("cidr_str", help="Sous-réseau (ex: 192.168.1.0/24)")
+
+    p_odork = osint_sub.add_parser("dorks", help="Générer des Google Dorks de cartographie")
+    p_odork.add_argument("domain", help="Nom de domaine cible")
+
+    p_omac = osint_sub.add_parser("mac", help="Résoudre le constructeur d'une adresse MAC (OUI)")
+    p_omac.add_argument("mac", help="Adresse MAC (ex: 00:50:56:12:34:56)")
+
+    word_p = subparsers.add_parser("wordlist", help="Générateur de mutations de mots de passe Leetspeak")
+    word_sub = word_p.add_subparsers(dest="action")
+
+    p_wmut = word_sub.add_parser("mutate", help="Générer des variantes Leetspeak CTF d'un mot")
+    p_wmut.add_argument("word", help="Mot de passe ou terme de base")
+    p_wmut.add_argument("-n", "--count", type=int, default=50, help="Nombre max de variantes (défaut: 50)")
+
+    # 9. Module Assistant IA
     ai_p = subparsers.add_parser("ai", help="Assistant IA & Méthodologies CTF")
     ai_sub = ai_p.add_subparsers(dest="action")
 
@@ -515,12 +713,12 @@ def main():
     p_aian.add_argument("-t", "--title", required=True, help="Titre du challenge")
     p_aian.add_argument("-d", "--description", help="Description ou énoncé du challenge")
 
-    p_aiprompt = ai_sub.add_parser("prompt", help="Générer un prompt LLM optimisé pour résoudre un problème")
+    p_aiprompt = ai_sub.add_parser("prompt", help="Générer un prompt LLM optimisé")
     p_aiprompt.add_argument("-c", "--category", required=True, help="Catégorie (Crypto, Reverse, Web...)")
     p_aiprompt.add_argument("-f", "--context", required=True, help="Extrait de code ou données")
 
     p_aidet = ai_sub.add_parser("detect", help="Diagnostiquer un encodage ou type de hash inconnu")
-    p_aidet.add_argument("text", nargs="+", help="Chaîne suspecte à diagnostiquer")
+    p_aidet.add_argument("text", nargs="+", help="Chaîne suspecte")
 
     args = parser.parse_args()
 
@@ -530,16 +728,24 @@ def main():
 
     banner()
 
-    if args.module == "crypto":
+    if args.module == "scan":
+        handle_scan(args)
+    elif args.module == "crypto":
         handle_crypto(args)
     elif args.module == "forensics":
         handle_forensics(args)
     elif args.module == "reverse":
         handle_reverse(args)
+    elif args.module == "pwn":
+        handle_pwn(args)
     elif args.module == "web":
         handle_web(args)
     elif args.module == "pcap":
         handle_pcap(args)
+    elif args.module == "osint":
+        handle_osint(args)
+    elif args.module == "wordlist":
+        handle_wordlist(args)
     elif args.module == "ai":
         handle_ai(args)
 
