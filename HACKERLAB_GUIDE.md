@@ -115,37 +115,43 @@ python3 hackerlab.py forensics strings dump.raw -n 6
 python3 hackerlab.py forensics flags capture_memoire.dmp
 ```
 
-### ⚙️ 4. Reverse Engineering (`reverse`)
+### ⚙️ 4. Reverse Engineering & Perfectionneur Ghidra v3.0 (`reverse`)
 ```bash
-# Nettoyer, retyper et perfectionner du code décompilé Ghidra (supprime casts, décode stack strings, renomme variables)
+# 1. Nettoyer, retyper et auto-résoudre le flag d'un code décompilé Ghidra
 python3 hackerlab.py reverse clean-decompile code_ghidra_brut.c -o code_propre.c
 
-# Décompiler automatiquement un binaire sans interface graphique (Ghidra Headless Analyzer)
+# 2. Auto-solveur SMT / Z3 : extrait les équations de validation et calcule la clé/flag
+python3 hackerlab.py reverse solve-smt "if ((input[0] ^ 0x5a) == 0x32 && input[1] == 'l') ..."
+
+# 3. Transpiler une fonction C décompilée en script Python 100 % exécutable (Binary2Py)
+python3 hackerlab.py reverse to-python code_validation.c -o simulateur.py
+
+# 4. Scanner les constantes cryptographiques d'un binaire (AES SBox, SHA256 K, MD5, ChaCha20, TEA)
+python3 hackerlab.py reverse crypto-scan binaire_mystere.elf
+
+# 5. Décompiler automatiquement un binaire sans interface graphique (Ghidra Headless Analyzer)
 python3 hackerlab.py reverse ghidra-headless mon_binaire.elf -o decompiled_clean.c
 
-# Vérification checksec sur un binaire ELF (NX, PIE, Canary, RELRO, Stripped)
+# 6. Vérification checksec sur un binaire ELF (NX, PIE, Canary, RELRO, Stripped)
 python3 hackerlab.py reverse checksec challenge.elf
 
-# Détecteur de Packers & Compilateurs (style Detect It Easy / DIE)
+# 7. Détecteur de Packers & Compilateurs (style Detect It Easy / DIE)
 python3 hackerlab.py reverse die binaire_suspect.bin
 
-# Détection de mécanismes d'anti-débogage (ptrace, RDTSC, TracerPid)
+# 8. Détection de mécanismes d'anti-débogage (ptrace, RDTSC, TracerPid)
 python3 hackerlab.py reverse anti-debug challenge.elf
 
-# Recherche de ROP Gadgets fondamentaux (pop rdi, ret, syscall, leave; ret)
+# 9. Recherche de ROP Gadgets fondamentaux (pop rdi, ret, syscall, leave; ret)
 python3 hackerlab.py reverse rop challenge.elf
 
-# Générateur de script GDB + Pwndbg pour l'analyse dynamique & interception strcmp
+# 10. Générateur de script GDB + Pwndbg pour l'analyse dynamique & interception strcmp
 python3 hackerlab.py reverse gdb-script challenge.elf -o pwndbg_init.gdb
 
-# Tentative de dépaquetage automatique (ex: UPX)
+# 11. Tentative de dépaquetage automatique (ex: UPX)
 python3 hackerlab.py reverse unpack binaire_packe.elf
 
-# Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)
+# 12. Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)
 python3 hackerlab.py reverse audit binaire_modifie.bin
-
-# Extraire les fonctions et symboles clés
-python3 hackerlab.py reverse symbols crackme.bin
 ```
 
 #### 💡 Comparatif Avant / Après du Perfectionneur Ghidra :

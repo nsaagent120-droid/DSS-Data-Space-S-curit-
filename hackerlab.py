@@ -283,12 +283,73 @@ def handle_reverse(args):
                 print(f"     ↳ {Colors.YELLOW}{old_v:<14}{Colors.RESET} -> {Colors.BOLD}{new_v}{Colors.RESET}")
             print()
 
+        if res.get("smt_solving", {}).get("recovered_flag"):
+            print(f"  {Colors.BOLD}{Colors.GREEN}🧙‍♂️ AUTO-RÉSOLUTION SMT DU FLAG / CLÉ :{Colors.RESET}")
+            print(f"     ↳ {Colors.BOLD}{Colors.YELLOW}{res['smt_solving']['recovered_flag']}{Colors.RESET} ({res['smt_solving']['solved_positions']} caractères résolus)\n")
+
         if args.output:
             with open(args.output, "w", encoding="utf-8") as f:
                 f.write(res["cleaned_code"])
             print(f"  {Colors.GREEN}[+] Code propre sauvegardé dans : {args.output}{Colors.RESET}\n")
         else:
             print(res["cleaned_code"])
+        return
+
+    elif args.action == "solve-smt":
+        raw_code = ""
+        if os.path.exists(args.target):
+            with open(args.target, "r", encoding="utf-8", errors="ignore") as f:
+                raw_code = f.read()
+        else:
+            raw_code = args.target
+
+        smt = GhidraDecompilerCleaner.auto_solve_constraints(raw_code)
+        print(f"\n{Colors.CYAN}=== AUTO-SOLVEUR DE CONTRAINTES REVERSE (SMT / Z3 LOGIC) ==={Colors.RESET}\n")
+        if smt["constraints_found"]:
+            print(f"  {Colors.GREEN}[*] Équations extraites du code ({len(smt['constraints_found'])}) :{Colors.RESET}")
+            for eq in smt["constraints_found"][:8]:
+                print(f"      ↳ {eq}")
+            print()
+
+        if smt["recovered_flag"]:
+            print(f"  {Colors.BOLD}{Colors.GREEN}🚩 FLAG / CLÉ EXTRAIT AVEC SUCCÈS :{Colors.RESET}")
+            print(f"     ↳ {Colors.BOLD}{Colors.YELLOW}{smt['recovered_flag']}{Colors.RESET}\n")
+        else:
+            print(f"  {Colors.YELLOW}[!] Aucune contrainte linéaire triviale détectée dans l'extrait.{Colors.RESET}\n")
+        return
+
+    elif args.action == "to-python":
+        raw_code = ""
+        if os.path.exists(args.target):
+            with open(args.target, "r", encoding="utf-8", errors="ignore") as f:
+                raw_code = f.read()
+        else:
+            raw_code = args.target
+
+        py_script = GhidraDecompilerCleaner.transpile_c_to_python(raw_code)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(py_script)
+            print(f"\n{Colors.GREEN}[+] Simulateur Python généré avec succès dans : {args.output}{Colors.RESET}\n")
+        else:
+            print(f"\n{Colors.CYAN}=== SIMULATEUR PYTHON (TRANSPILED BINARY2PY) ==={Colors.RESET}\n")
+            print(py_script)
+        return
+
+    elif args.action == "crypto-scan":
+        if not os.path.exists(args.file):
+            print(f"{Colors.RED}[!] Fichier introuvable : {args.file}{Colors.RESET}")
+            return
+        with open(args.file, "rb") as f:
+            b_data = f.read()
+        c_finds = GhidraDecompilerCleaner.scan_crypto_constants(b_data)
+        print(f"\n{Colors.CYAN}=== DÉTECTION DE CONSTANTES CRYPTOGRAPHIQUES (KRYPTOANALYZER) : {os.path.basename(args.file)} ==={Colors.RESET}\n")
+        if not c_finds:
+            print(f"  {Colors.YELLOW}[!] Aucune table de constantes cryptographiques standard identifiée.{Colors.RESET}\n")
+        else:
+            for cf in c_finds:
+                print(f"  🔐 {Colors.BOLD}{Colors.GREEN}{cf['algorithm']}{Colors.RESET} : {cf['name']} (Offset: {cf['offset']})")
+                print(f"     ↳ {cf['description']}\n")
         return
 
     elif args.action == "ghidra-headless":
@@ -907,6 +968,16 @@ def main():
     p_rclean = rev_sub.add_parser("clean-decompile", help="Nettoyer, retyper et perfectionner du code décompilé par Ghidra")
     p_rclean.add_argument("target", help="Fichier .c ou chaîne de code Ghidra brut")
     p_rclean.add_argument("-o", "--output", help="Fichier de sortie C nettoyé")
+
+    p_rsmt = rev_sub.add_parser("solve-smt", help="Auto-résoudre les équations de validation d'un crackme (SMT/Z3 Logic)")
+    p_rsmt.add_argument("target", help="Fichier .c ou extrait de code contenant les conditions")
+
+    p_rpy = rev_sub.add_parser("to-python", help="Transpiler une fonction décompilée C en script Python exécutable")
+    p_rpy.add_argument("target", help="Fichier .c ou code source décompilé")
+    p_rpy.add_argument("-o", "--output", help="Fichier Python de sortie")
+
+    p_rcrypto = rev_sub.add_parser("crypto-scan", help="Détecter les tables de constantes cryptographiques (KryptoAnalyzer)")
+    p_rcrypto.add_argument("file", help="Chemin du binaire à scanner")
 
     p_rghidra = rev_sub.add_parser("ghidra-headless", help="Décompiler automatiquement un binaire via Ghidra Headless")
     p_rghidra.add_argument("binary", help="Chemin du binaire à décompiler")
