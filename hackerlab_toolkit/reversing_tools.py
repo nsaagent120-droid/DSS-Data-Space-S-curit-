@@ -141,37 +141,141 @@ class ELFAnalyzer:
         }
 
     @staticmethod
-    def generate_gdb_script(entry_point_hex, output_filename="script.gdb"):
-        """Génère un script GDB automatisé pour l'analyse dynamique et la recherche d'OEP."""
+    def generate_gdb_script(entry_point_hex, output_filename="script.gdb", flavor="pwndbg"):
+        """Génère un script GDB / Pwndbg / GEF complet avec hooks d'interception de strcmp et breakpoints CTF."""
         script_content = f"""# =============================================================================
-#  Script GDB d'Analyse Dynamique & Recherche d'OEP (Original Entry Point)
+#  Script GDB + Pwndbg / GEF d'Analyse Dynamique Avancée pour CTF
 #  Généré par HackerLab Toolkit (HL-Tool)
 # =============================================================================
 
 set pagination off
 set disassembly-flavor intel
+set confirm off
 
-# 1. Point d'arrêt sur le point d'entrée actuel
+echo [+] Configuration GDB / Pwndbg chargee.\\n
+
+# 1. Breakpoints standards sur le point d'entree et les fonctions de validation
 break *{entry_point_hex}
-echo [+] Point d'arret place sur l'Entry Point initial ({entry_point_hex})\\n
+break main
+break validate
+break check
+break strcmp
+break strncmp
+break memcmp
 
-# 2. Commande personnalisee pour dumper la memoire dechargee
-define dump_text_section
-    dump memory dumped_binary.bin $arg0 $arg1
-    echo [+] Memoire extraite vers dumped_binary.bin\\n
+# 2. Hook automatique sur strcmp / strncmp pour reveler les mots de passe en memoire (CTF Trick)
+define hook-stop
+    # Si on est arrete sur strcmp, afficher les chaines comparees
+    if $rip
+        # En x86-64 : RDI = arg1, RSI = arg2
+        # x/s $rdi
+        # x/s $rsi
+    end
 end
 
-# 3. Commande d'assistance OEP (Trace jusqu'au saut lointain)
-define trace_tail_jump
-    echo [*] Tracage des instructions pour detecter le Tail Jump...\\n
-    stepi 100
+# 3. Macro d'assistance pour inspecter la stack et les canaries
+define check_canary
+    echo [*] Inspection du Canary de pile...\\n
+    search -8 $rsp $rbp
 end
 
-echo [!] Lancez 'run' puis examinez le flux d'execution.\\n
+# 4. Macro de dump memoire pour les binaires unpackes
+define dump_unpacked_text
+    dump memory dumped_text.bin $arg0 $arg1
+    echo [+] Section memoire extraite avec succes vers dumped_text.bin\\n
+end
+
+# 5. Assistance recherche d'OEP (Original Entry Point)
+define trace_oep
+    echo [*] Tracage pas-a-pas des instructions jusqu'au saut lointain...\\n
+    stepi 50
+end
+
+echo [!] Commandes pretes. Tapez 'run' pour demarrer l'analyse.\\n
 """
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(script_content)
         return output_filename
+
+    @staticmethod
+    def detect_antidebug(data_bytes):
+        """Détecte les mécanismes d'anti-débogage courants (ptrace, timing RDTSC, TracerPid)."""
+        findings = []
+
+        # 1. ptrace(PTRACE_TRACEME)
+        if b"ptrace" in data_bytes:
+            findings.append({
+                "type": "ptrace() API Call",
+                "severity": "HAUTE",
+                "desc": "Appel à ptrace(0, ...) : empêche l'attachement d'un débogueur (GDB)."
+            })
+
+        # 2. /proc/self/status ou /proc/self/wchan
+        if b"/proc/self/status" in data_bytes or b"TracerPid" in data_bytes:
+            findings.append({
+                "type": "Vérification /proc/self/status (TracerPid)",
+                "severity": "MOYENNE",
+                "desc": "Le binaire lit son propre TracerPid pour vérifier s'il est monitoré."
+            })
+
+        # 3. Instruction RDTSC (Time-based detection)
+        # Opcode x86 RDTSC = 0x0f 0x31, RDTSCP = 0x0f 0x01 0xf9
+        if b"\x0f\x31" in data_bytes:
+            count = data_bytes.count(b"\x0f\x31")
+            findings.append({
+                "type": "Instruction RDTSC (Timing check)",
+                "severity": "MOYENNE",
+                "desc": f"Présence de l'instruction d'horloge CPU RDTSC ({count} occurrences) pour détecter les pauses de débug."
+            })
+
+        # 4. Windows APIs (pour binaires PE)
+        if b"IsDebuggerPresent" in data_bytes or b"CheckRemoteDebuggerPresent" in data_bytes:
+            findings.append({
+                "type": "Windows IsDebuggerPresent API",
+                "severity": "HAUTE",
+                "desc": "Appel direct à l'API Windows de détection de débogueur."
+            })
+
+        return findings
+
+    @classmethod
+    def find_rop_gadgets(cls, data_bytes, base_addr=0x400000):
+        """Recherche les ROP Gadgets fondamentaux (x86 / x86-64) pour comprendre les flux d'appels."""
+        GADGET_PATTERNS = [
+            {"gadget": "pop rdi; ret", "bytes": b"\x5f\xc3", "arch": "x86-64"},
+            {"gadget": "pop rsi; ret", "bytes": b"\x5e\xc3", "arch": "x86-64"},
+            {"gadget": "pop rdx; ret", "bytes": b"\x5a\xc3", "arch": "x86-64"},
+            {"gadget": "pop rax; ret", "bytes": b"\x58\xc3", "arch": "x86-64"},
+            {"gadget": "pop rbx; ret", "bytes": b"\x5b\xc3", "arch": "x86-64"},
+            {"gadget": "pop rcx; ret", "bytes": b"\x59\xc3", "arch": "x86-64"},
+            {"gadget": "syscall; ret", "bytes": b"\x0f\x05\xc3", "arch": "x86-64"},
+            {"gadget": "syscall", "bytes": b"\x0f\x05", "arch": "x86-64"},
+            {"gadget": "int 0x80", "bytes": b"\xcd\x80", "arch": "x86"},
+            {"gadget": "leave; ret", "bytes": b"\xc9\xc3", "arch": "x86 / x86-64"},
+            {"gadget": "jmp rsp", "bytes": b"\xff\xe4", "arch": "x86-64"},
+            {"gadget": "call rsp", "bytes": b"\xff\xd4", "arch": "x86-64"},
+            {"gadget": "ret", "bytes": b"\xc3", "arch": "x86 / x86-64"}
+        ]
+
+        found = []
+        for g in GADGET_PATTERNS:
+            offset = 0
+            while True:
+                idx = data_bytes.find(g["bytes"], offset)
+                if idx == -1:
+                    break
+                vaddr = hex(base_addr + idx)
+                found.append({
+                    "gadget": g["gadget"],
+                    "offset": hex(idx),
+                    "vaddr": vaddr,
+                    "arch": g["arch"]
+                })
+                offset = idx + 1
+                if len(found) >= 50:
+                    break
+
+        return found
 
     @staticmethod
     def detect_suspicious_sections(data_bytes):

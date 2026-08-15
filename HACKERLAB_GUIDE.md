@@ -113,11 +113,17 @@ python3 hackerlab.py reverse checksec challenge.elf
 # Détecteur de Packers & Compilateurs (style Detect It Easy / DIE)
 python3 hackerlab.py reverse die binaire_suspect.bin
 
+# Détection de mécanismes d'anti-débogage (ptrace, RDTSC, TracerPid)
+python3 hackerlab.py reverse anti-debug challenge.elf
+
+# Recherche de ROP Gadgets fondamentaux (pop rdi, ret, syscall, leave; ret)
+python3 hackerlab.py reverse rop challenge.elf
+
+# Générateur de script GDB + Pwndbg pour l'analyse dynamique & interception strcmp
+python3 hackerlab.py reverse gdb-script challenge.elf -o pwndbg_init.gdb
+
 # Tentative de dépaquetage automatique (ex: UPX)
 python3 hackerlab.py reverse unpack binaire_packe.elf
-
-# Générateur de script GDB pour l'analyse dynamique & la recherche d'OEP
-python3 hackerlab.py reverse gdb-script challenge.elf -o debug_oep.gdb
 
 # Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)
 python3 hackerlab.py reverse audit binaire_modifie.bin

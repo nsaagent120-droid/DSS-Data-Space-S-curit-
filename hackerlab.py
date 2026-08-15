@@ -316,10 +316,32 @@ def handle_reverse(args):
     elif args.action == "gdb-script":
         info = ELFAnalyzer.parse_elf_header(data)
         ep = info["entry_point"] if info else "0x08048000"
-        out_gdb = args.output or "analysis.gdb"
+        out_gdb = args.output or "pwndbg_init.gdb"
         ELFAnalyzer.generate_gdb_script(ep, out_gdb)
-        print(f"\n{Colors.GREEN}[+] Script GDB d'analyse dynamique généré dans : {out_gdb}{Colors.RESET}")
-        print(f"  💡 Pour l'utiliser sous GDB : gdb -x {out_gdb} {filepath}\n")
+        print(f"\n{Colors.GREEN}[+] Script GDB + Pwndbg généré dans : {out_gdb}{Colors.RESET}")
+        print(f"  💡 Pour lancer l'analyse dynamique avec vos hooks :")
+        print(f"     {Colors.CYAN}gdb -x {out_gdb} {filepath}{Colors.RESET}\n")
+
+    elif args.action == "anti-debug":
+        antidebugs = ELFAnalyzer.detect_antidebug(data)
+        print(f"\n{Colors.CYAN}=== DÉTECTEUR D'ANTI-DÉBOGAGE & ÉVASIONS : {os.path.basename(filepath)} ==={Colors.RESET}")
+        if antidebugs:
+            for a in antidebugs:
+                print(f"  ⚠️ {Colors.YELLOW}[{a['severity']}] {a['type']}{Colors.RESET} : {a['desc']}")
+        else:
+            print(f"  {Colors.GREEN}[+] Aucun mécanisme d'anti-débogage standard détecté.{Colors.RESET}")
+        print()
+
+    elif args.action == "rop":
+        info = ELFAnalyzer.parse_elf_header(data)
+        base = 0x400000 if (info and info["class"] == "64-bit") else 0x8048000
+        gadgets = ELFAnalyzer.find_rop_gadgets(data, base_addr=base)
+        print(f"\n{Colors.CYAN}=== ROP GADGETS DISPONIBLES ({len(gadgets)} trouvés) : {os.path.basename(filepath)} ==={Colors.RESET}\n")
+        for g in gadgets[:25]:
+            print(f"  {Colors.GREEN}{g['vaddr']:<14}{Colors.RESET} : {Colors.BOLD}{g['gadget']:<20}{Colors.RESET} ({g['arch']})")
+        if len(gadgets) > 25:
+            print(f"\n  {Colors.DIM}... ({len(gadgets) - 25} autres gadgets omis){Colors.RESET}")
+        print()
 
     elif args.action == "audit":
         hashes = ELFAnalyzer.calculate_binary_hashes(data)
@@ -718,9 +740,15 @@ def main():
     p_runpack = rev_sub.add_parser("unpack", help="Tentative de dépaquetage automatique (UPX)")
     p_runpack.add_argument("file", help="Chemin du binaire")
 
-    p_rgdb = rev_sub.add_parser("gdb-script", help="Générer un script GDB d'analyse dynamique & OEP")
+    p_rgdb = rev_sub.add_parser("gdb-script", help="Générer un script GDB + Pwndbg d'analyse dynamique & OEP")
     p_rgdb.add_argument("file", help="Chemin du binaire")
-    p_rgdb.add_argument("-o", "--output", help="Nom du fichier script GDB de sortie (défaut: analysis.gdb)")
+    p_rgdb.add_argument("-o", "--output", help="Nom du fichier script GDB (défaut: pwndbg_init.gdb)")
+
+    p_rantidebug = rev_sub.add_parser("anti-debug", help="Détecter les mécanismes d'anti-débogage (ptrace, RDTSC, TracerPid)")
+    p_rantidebug.add_argument("file", help="Chemin du binaire")
+
+    p_rrop = rev_sub.add_parser("rop", help="Rechercher les ROP Gadgets fondamentaux (pop rdi, ret, syscall)")
+    p_rrop.add_argument("file", help="Chemin du binaire")
 
     p_raudit = rev_sub.add_parser("audit", help="Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)")
     p_raudit.add_argument("file", help="Chemin du binaire")
