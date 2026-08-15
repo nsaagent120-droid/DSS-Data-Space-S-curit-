@@ -27,7 +27,7 @@ Le script `hackerlab.py` regroupe l'intégralité des outils nécessaires pour u
 
 | Domaine | Outils & Capacités Incluses |
 |---|---|
-| **🛡️ Scanner Intégré** | D-Scan v3.0 (Scan TCP & UDP, Versions -sV, OSINT Geo, WAF, CMS, DNS, SSL, Rapports HTML/XML). |
+| **🛡️ Scanner Intégré** | D-Scan v4.0 Enterprise / ASM (Scan TCP & UDP, Versions -sV, CT Logs passifs, Cloud Hunter, Secrets JS, GraphQL, IPv6 drift, WAF, CMS, DNS, SSL, Rapports HTML/XML). |
 | **🔐 Cryptographie** | Décodeur multi-formats (Base64, Hex, Binaire, Morse, ROT13), Chiffres classiques (César, Vigenère, Rail Fence, Affine, Bacon), Bruteforce XOR 1-octet & multi-octets, Hashes ID, Solveurs RSA (p, q, e -> d, racine e, Fermat, **Attaque de Wiener**, **Pollard p-1**), Logarithme Discret et Stégano Base64. |
 | **🔬 Forensics** | Magic bytes / Headers, Entropie Shannon, Réparateur de dimensions PNG corrompues (CRC32 IHDR), File carving, Chasseur de flags CTF. |
 | **⚙️ Reverse** | Checksec ELF natif (NX, PIE, Canary, RELRO, Stripped), extracteur de symboles et fonctions clés, détection de packers (UPX), générateur de scripts GDB/Pwndbg avec hooks strcmp, détection d'anti-debug et scanner de ROP gadgets. |
@@ -147,6 +147,11 @@ python3 hackerlab.py reverse audit binaire_modifie.bin
 # Extraire les fonctions et symboles clés
 python3 hackerlab.py reverse symbols crackme.bin
 ```
+
+#### 💡 Comparatif Avant / Après du Perfectionneur Ghidra :
+| Pseudo-Code Brut Ghidra (Illisible) | Code Perfectionné par HackerLab Toolkit (Lisible) |
+|---|---|
+| ```c<br>undefined8 main(int param_1, undefined8 *param_2)<br>{<br>  uint uVar1;<br>  int iVar2;<br>  void *pvVar3;<br>  undefined8 local_20;<br>  <br>  local_20 = 0x67616c66;<br>  uVar1 = strlen((char *)param_2[1]);<br>  pvVar3 = malloc((ulonglong)(uint)uVar1);<br>  iVar2 = strcmp((char *)param_2[1], "secret");<br>  if (iVar2 == 0) { puts("Win!"); }<br>  return 0;<br>}<br>``` | ```c<br>uint64_t main(int argc, uint64_t *argv)<br>{<br>  uint32_t char_len;<br>  int cmp_result;<br>  void *pvVar3;<br>  uint64_t local_20;<br>  <br>  local_20 = 0x67616c66; // Stack String : "flag"<br>  char_len = strlen((char *)argv[1]);<br>  pvVar3 = malloc(char_len);<br>  cmp_result = strcmp((char *)argv[1], "secret");<br>  if (cmp_result == 0) { puts("Win!"); }<br>  return 0;<br>}<br>``` |
 
 ### 💥 5. Pwn & Buffer Overflow Math (`pwn`)
 ```bash
