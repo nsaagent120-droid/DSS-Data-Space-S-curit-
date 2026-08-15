@@ -813,11 +813,39 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 ---
 
+## 🛠️ Outils de Scan & d'Audit Intégrés
+
+Le dépôt intègre une suite d'outils de scan réseau, d'audit de sécurité web et de reconnaissance :
+
+| Outil | Description | Guide & Usage |
+|---|---|---|
+| 🐍 **`scan.py`** | Scanner complet multi-threadé en Python (Ports, Détection d'OS, SSL/TLS, Audit Web OWASP, En-têtes HTTP, Fichiers sensibles, Sous-domaines, Ping sweep, Rapports HTML/MD/JSON). | [Documentation complète](SCANNER_GUIDE.md#2-scanner-principal-en-python-scanpy) |
+| ⚡ **`c_scanner/`** | Scanner réseau TCP rapide en C avec sockets non-bloquants (`select`), threads POSIX (`pthread`) et capture de bannières. | [Documentation C Scanner](SCANNER_GUIDE.md#3-scanner-réseau-haute-performance-en-c-c_scanner) |
+
+**Lancement rapide :**
+```bash
+# Scan complet d'une cible avec rapport HTML interactif
+python3 scan.py -t scanme.nmap.org --full --html report.html
+
+# Compilation et exécution du scanner C
+cd c_scanner && make && ./port_scanner -t 127.0.0.1 -s 1 -e 1024 -b
+```
+
+---
+
 ## 📁 Structure de ce dépôt
 
 ```
 📂 cybersecurity-learning/
 ├── 📄 README.md                    ← ce fichier
+├── 📄 SCANNER_GUIDE.md             ← guide complet des scanners de sécurité
+├── 📄 scan.py                      ← scanner de vulnérabilités & réseau Python
+├── 📂 c_scanner/                   ← scanner TCP haute performance en C (pthread/sockets)
+│   ├── 📄 port_scanner.c
+│   └── 📄 Makefile
+├── 📄 CMakeLists.txt               ← configuration de build CMake & CI
+├── 📄 PROGRESSION 1.md             ← guide des fondamentaux du langage C
+├── 📄 variable.c                   ← exercices pratiques C
 ├── 📂 phase0-fondations/
 │   ├── 📂 c-exercises/             ← exercices C commentés
 │   ├── 📂 asm-examples/            ← snippets assembleur annotés
