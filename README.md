@@ -813,22 +813,28 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 ---
 
-## 🛠️ Outils de Scan & d'Audit Intégrés
+## 🛠️ Outils de Scan & d'Audit Intégrés (D-Scan v2.0)
 
-Le dépôt intègre une suite d'outils de scan réseau, d'audit de sécurité web et de reconnaissance :
+Le dépôt intègre une suite complète d'audit de sécurité réseau et web sans dépendances externes (alternative moderne à **Nmap**, **Nikto** et **SSLyze**) :
 
-| Outil | Description | Guide & Usage |
+| Outil | Description & Capacités | Guide & Référence |
 |---|---|---|
-| 🐍 **`scan.py`** | Scanner complet multi-threadé en Python (Ports, Détection d'OS, SSL/TLS, Audit Web OWASP, En-têtes HTTP, Fichiers sensibles, Sous-domaines, Ping sweep, Rapports HTML/MD/JSON). | [Documentation complète](SCANNER_GUIDE.md#2-scanner-principal-en-python-scanpy) |
-| ⚡ **`c_scanner/`** | Scanner réseau TCP rapide en C avec sockets non-bloquants (`select`), threads POSIX (`pthread`) et capture de bannières. | [Documentation C Scanner](SCANNER_GUIDE.md#3-scanner-réseau-haute-performance-en-c-c_scanner) |
+| 🐍 **`scan.py`** | **DSS Ultimate Security Scanner (D-Scan)** :<br>• Scan de ports TCP & UDP (`-sU`) multi-threadé<br>• Détection de services & bannières approfondie (`-sV`)<br>• Corrélation automatique de **CVE & score CVSS**<br>• Audit Web OWASP (En-têtes de sécurité, Cookies, Méthodes HTTP, Fichiers `.git`/`.env` exposés)<br>• Inspection cryptographique SSL/TLS (protocoles, certificats)<br>• Diagnostic réseau & Traceroute TCP/IP<br>• Modèles de vitesse & timing (T1 Furtif à T5 Insane)<br>• Export multi-formats : **HTML interactif**, **XML compatible Nmap**, JSON, Markdown | [Documentation Complète](SCANNER_GUIDE.md) |
+| ⚡ **`c_scanner/`** | **D-Scan C Engine** : Scanner TCP haute performance en C (Sockets non-bloquants `select`, threads POSIX `pthread`, bannières, export JSON). | [Documentation C](SCANNER_GUIDE.md#6-moteur-c-haute-performance-c_scanner) |
 
 **Lancement rapide :**
 ```bash
-# Scan complet d'une cible avec rapport HTML interactif
-python3 scan.py -t scanme.nmap.org --full --html report.html
+# Scan agressif complet avec tableau de bord HTML & export XML Nmap
+python3 scan.py -t scanme.nmap.org -A --html dashboard.html --xml scan_nmap.xml
 
-# Compilation et exécution du scanner C
-cd c_scanner && make && ./port_scanner -t 127.0.0.1 -s 1 -e 1024 -b
+# Scan de services & vulnérabilités CVE avec timing rapide T4
+python3 scan.py -t 192.168.1.10 -p 21,22,80,443,3306 -sV -T4 --markdown rapport.md
+
+# Scan UDP avec sondes protocolaires authentiques (DNS, NTP, SNMP...)
+python3 scan.py -t 192.168.1.10 -sU
+
+# Scanner C natif haute cadence
+cd c_scanner && make && ./port_scanner -t 127.0.0.1 -p top20 -b -o resultats.json
 ```
 
 ---
