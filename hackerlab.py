@@ -546,10 +546,13 @@ def interactive_menu():
         choice = input(f"{Colors.BOLD}Choisissez une option [0-9] > {Colors.RESET}").strip()
 
         if choice == "1":
-            target = input("Entrez la cible à scanner (IP ou domaine) > ").strip()
+            print(f"\n{Colors.BOLD}{Colors.CYAN}--- MODULE SCANNER DE SÉCURITÉ (D-SCAN v4.0) ---{Colors.RESET}")
+            target = input("Entrez la cible à scanner (ex: example.com ou 192.168.1.1) > ").strip()
             if target:
+                opt_full = input("Activer le scan complet ASM (CT Logs, Cloud, Secrets JS, WAF, Ports) ? [O/n] > ").strip().lower()
+                flags = ["-A", "--html", f"rapport_{target.replace(':', '_')}.html"] if opt_full != "n" else ["--html", f"rapport_{target.replace(':', '_')}.html"]
                 scan_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scan.py")
-                subprocess.run([sys.executable, scan_script, "-t", target, "-A", "--html", f"rapport_{target}.html"])
+                subprocess.run([sys.executable, scan_script, "-t", target] + flags)
             input("\nAppuyez sur Entrée pour continuer...")
 
         elif choice == "2":
@@ -653,16 +656,22 @@ def main():
         interactive_menu()
         return
 
+    # Routage direct pour le scanner afin de transmettre tous les arguments de manière transparente
+    if sys.argv[1] == "scan":
+        scan_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scan.py")
+        cmd = [sys.executable, scan_script] + sys.argv[2:]
+        try:
+            subprocess.run(cmd)
+        except Exception as e:
+            print(f"{Colors.RED}[!] Erreur lors de l'exécution du scanner : {e}{Colors.RESET}")
+        return
+
     parser = argparse.ArgumentParser(
         description="HackerLab Toolkit (v2.0) — Suite d'outils CTF multi-spécialités, Scanner & Assistant IA.",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
     subparsers = parser.add_subparsers(dest="module", help="Module d'outils à exécuter")
-
-    # 1. Module Scanner Intégré
-    scan_p = subparsers.add_parser("scan", help="Lancer le scanner de sécurité réseau & web D-Scan v3.0")
-    scan_p.add_argument("scan_args", nargs=argparse.REMAINDER, help="Arguments transmis à scan.py (ex: -t cible.com -A)")
 
     # 2. Module Crypto
     crypto_p = subparsers.add_parser("crypto", help="Outils Cryptographiques & Chiffres classiques")
