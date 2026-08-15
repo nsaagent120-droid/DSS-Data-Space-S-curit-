@@ -107,8 +107,20 @@ python3 hackerlab.py forensics flags capture_memoire.dmp
 
 ### ⚙️ 4. Reverse Engineering (`reverse`)
 ```bash
-# Checksec sur un binaire ELF (NX, PIE, Canary, RELRO)
+# Checksec sur un binaire ELF (NX, PIE, Canary, RELRO, Stripped)
 python3 hackerlab.py reverse checksec challenge.elf
+
+# Détecteur de Packers & Compilateurs (style Detect It Easy / DIE)
+python3 hackerlab.py reverse die binaire_suspect.bin
+
+# Tentative de dépaquetage automatique (ex: UPX)
+python3 hackerlab.py reverse unpack binaire_packe.elf
+
+# Générateur de script GDB pour l'analyse dynamique & la recherche d'OEP
+python3 hackerlab.py reverse gdb-script challenge.elf -o debug_oep.gdb
+
+# Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)
+python3 hackerlab.py reverse audit binaire_modifie.bin
 
 # Extraire les fonctions et symboles clés
 python3 hackerlab.py reverse symbols crackme.bin

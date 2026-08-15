@@ -98,15 +98,80 @@ class ELFAnalyzer:
 
     @staticmethod
     def detect_packers(data_bytes):
-        """Détecte si le binaire a été compressé / protégé avec UPX ou autre packer."""
+        """Détecte les packers, obfuscateurs et compilateurs (style Detect It Easy / DIE)."""
         findings = []
-        if b"UPX!" in data_bytes or b"UPX0" in data_bytes or b"UPX1" in data_bytes:
-            findings.append({
-                "packer": "UPX (Ultimate Packer for eXecutables)",
-                "confidence": "Haute",
-                "solution": "Décompresser avec la commande : upx -d <binaire>"
-            })
-        return findings
+
+        # 1. Signatures de Packers courants
+        PACKER_SIGS = [
+            {"name": "UPX (Ultimate Packer for eXecutables)", "patterns": [b"UPX!", b"UPX0", b"UPX1", b"UPX2"], "solution": "Dépaqueter avec : upx -d <fichier>"},
+            {"name": "PyInstaller (Exécutable Python packé)", "patterns": [b"MEI\x0c\x0b\x0a\x0b", b"pyi-runtime-tmpdir", b"_MEIPASS"], "solution": "Extraire avec : pyinstxtractor.py <fichier>"},
+            {"name": "Py2Exe (Python packé Windows)", "patterns": [b"py2exe", b"PYTHON27.DLL", b"PYTHON3.DLL"], "solution": "Extraire les ressources avec un extracteur de bytecode pyc"},
+            {"name": "ASPack", "patterns": [b".aspack", b"ASPack"], "solution": "Rechercher l'OEP par tail jump sous GDB/x64dbg"},
+            {"name": "PECompact", "patterns": [b"PECompact2", b"PEC2"], "solution": "Placer un breakpoint mémoire sur la section .text"},
+            {"name": "Petite", "patterns": [b".petite", b"petite"], "solution": "Dépaquetage dynamique sous débogueur"}
+        ]
+
+        for p in PACKER_SIGS:
+            for pat in p["patterns"]:
+                if pat in data_bytes:
+                    findings.append({
+                        "packer": p["name"],
+                        "confidence": "Haute",
+                        "solution": p["solution"]
+                    })
+                    break
+
+        # 2. Détection de Compilateurs & Langages sources
+        COMPILER_SIGS = [
+            {"name": "Go (Golang Runtime)", "pattern": b"runtime.buildVersion", "desc": "Binaire compilé en Golang (table de symboles pclntab)"},
+            {"name": "Rust (rustc)", "pattern": b"/rustc/", "desc": "Binaire compilé avec le compilateur Rust"},
+            {"name": "GCC (GNU C Compiler)", "pattern": b"GCC: (GNU)", "desc": "Binaire C/C++ compilé avec GCC"},
+            {"name": "Clang / LLVM", "pattern": b"clang version", "desc": "Binaire compilé avec Clang/LLVM"},
+            {"name": "Nim Language", "pattern": b"Nim main", "desc": "Binaire compilé avec Nim"}
+        ]
+
+        compilers = []
+        for c in COMPILER_SIGS:
+            if c["pattern"] in data_bytes:
+                compilers.append({"name": c["name"], "desc": c["desc"]})
+
+        return {
+            "packers": findings,
+            "compilers": compilers
+        }
+
+    @staticmethod
+    def generate_gdb_script(entry_point_hex, output_filename="script.gdb"):
+        """Génère un script GDB automatisé pour l'analyse dynamique et la recherche d'OEP."""
+        script_content = f"""# =============================================================================
+#  Script GDB d'Analyse Dynamique & Recherche d'OEP (Original Entry Point)
+#  Généré par HackerLab Toolkit (HL-Tool)
+# =============================================================================
+
+set pagination off
+set disassembly-flavor intel
+
+# 1. Point d'arrêt sur le point d'entrée actuel
+break *{entry_point_hex}
+echo [+] Point d'arret place sur l'Entry Point initial ({entry_point_hex})\\n
+
+# 2. Commande personnalisee pour dumper la memoire dechargee
+define dump_text_section
+    dump memory dumped_binary.bin $arg0 $arg1
+    echo [+] Memoire extraite vers dumped_binary.bin\\n
+end
+
+# 3. Commande d'assistance OEP (Trace jusqu'au saut lointain)
+define trace_tail_jump
+    echo [*] Tracage des instructions pour detecter le Tail Jump...\\n
+    stepi 100
+end
+
+echo [!] Lancez 'run' puis examinez le flux d'execution.\\n
+"""
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(script_content)
+        return output_filename
 
     @staticmethod
     def detect_suspicious_sections(data_bytes):

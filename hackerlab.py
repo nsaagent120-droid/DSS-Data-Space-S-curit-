@@ -279,6 +279,48 @@ def handle_reverse(args):
             print(f"  {Colors.GREEN}↳{Colors.RESET} {Colors.BOLD}{s}{Colors.RESET}")
         print()
 
+    elif args.action == "die":
+        res = ELFAnalyzer.detect_packers(data)
+        print(f"\n{Colors.CYAN}=== DÉTECTEUR DE PACKERS & COMPILATEURS (STYLE DETECT IT EASY) ==={Colors.RESET}")
+        if res["packers"]:
+            for p in res["packers"]:
+                print(f"  📦 {Colors.BOLD}{Colors.YELLOW}{p['packer']}{Colors.RESET} (Confiance : {p['confidence']})")
+                print(f"     ↳ Solution : {p['solution']}")
+        else:
+            print(f"  {Colors.GREEN}[+] Aucun packer connu détecté (Binaire probablement natif / non compressé).{Colors.RESET}")
+
+        if res["compilers"]:
+            print(f"\n  {Colors.CYAN}[*] Compilateur / Runtime source identifié :{Colors.RESET}")
+            for c in res["compilers"]:
+                print(f"      ↳ {Colors.BOLD}{c['name']}{Colors.RESET} ({c['desc']})")
+        print()
+
+    elif args.action == "unpack":
+        print(f"\n{Colors.CYAN}[*] Tentative de dépaquetage automatique sur {filepath}...{Colors.RESET}")
+        res = ELFAnalyzer.detect_packers(data)
+        if any("UPX" in p["packer"] for p in res["packers"]):
+            out_unpacked = filepath + ".unpacked"
+            try:
+                r = subprocess.run(["upx", "-d", "-o", out_unpacked, filepath], capture_output=True, text=True)
+                if r.returncode == 0:
+                    print(f"  {Colors.GREEN}[+] Binaire dépaqueté avec succès dans : {out_unpacked}{Colors.RESET}\n")
+                else:
+                    print(f"  {Colors.YELLOW}[!] Échec de UPX : {r.stderr.strip()}{Colors.RESET}")
+                    print(f"  💡 Essayez : upx -d {filepath}\n")
+            except FileNotFoundError:
+                print(f"  {Colors.YELLOW}[!] L'utilitaire 'upx' n'est pas installé sur le système.{Colors.RESET}")
+                print(f"  💡 Installez-le avec : sudo apt install upx-ucl\n")
+        else:
+            print(f"  {Colors.YELLOW}[!] Aucun packer dépaquetable automatiquement (UPX) détecté.{Colors.RESET}\n")
+
+    elif args.action == "gdb-script":
+        info = ELFAnalyzer.parse_elf_header(data)
+        ep = info["entry_point"] if info else "0x08048000"
+        out_gdb = args.output or "analysis.gdb"
+        ELFAnalyzer.generate_gdb_script(ep, out_gdb)
+        print(f"\n{Colors.GREEN}[+] Script GDB d'analyse dynamique généré dans : {out_gdb}{Colors.RESET}")
+        print(f"  💡 Pour l'utiliser sous GDB : gdb -x {out_gdb} {filepath}\n")
+
     elif args.action == "audit":
         hashes = ELFAnalyzer.calculate_binary_hashes(data)
         audit_res = ELFAnalyzer.detect_suspicious_sections(data)
@@ -669,6 +711,16 @@ def main():
 
     p_rsym = rev_sub.add_parser("symbols", help="Extraire les symboles et fonctions clés")
     p_rsym.add_argument("file", help="Chemin du binaire")
+
+    p_rdie = rev_sub.add_parser("die", help="Détection de Packers & Compilateurs (style Detect It Easy)")
+    p_rdie.add_argument("file", help="Chemin du binaire")
+
+    p_runpack = rev_sub.add_parser("unpack", help="Tentative de dépaquetage automatique (UPX)")
+    p_runpack.add_argument("file", help="Chemin du binaire")
+
+    p_rgdb = rev_sub.add_parser("gdb-script", help="Générer un script GDB d'analyse dynamique & OEP")
+    p_rgdb.add_argument("file", help="Chemin du binaire")
+    p_rgdb.add_argument("-o", "--output", help="Nom du fichier script GDB de sortie (défaut: analysis.gdb)")
 
     p_raudit = rev_sub.add_parser("audit", help="Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)")
     p_raudit.add_argument("file", help="Chemin du binaire")
