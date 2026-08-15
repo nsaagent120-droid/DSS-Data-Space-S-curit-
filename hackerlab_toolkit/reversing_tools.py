@@ -109,15 +109,43 @@ class ELFAnalyzer:
         return findings
 
     @staticmethod
-    def extract_interesting_symbols(data_bytes):
-        """Extrait les fonctions et symboles clés souvent présents dans les challenges CTF."""
-        interesting_patterns = [
-            b"main", b"check", b"validate", b"flag", b"auth", b"password",
-            b"decrypt", b"encrypt", b"win", b"system", b"execve", b"ptrace",
-            b"secret", b"vuln", b"get_flag", b"give_shell"
-        ]
-        found = []
-        for pat in interesting_patterns:
-            if pat in data_bytes:
-                found.append(pat.decode())
-        return found
+    def detect_suspicious_sections(data_bytes):
+        """Audite la structure d'un binaire ELF pour détecter des sections anormales (ex: RWX) ou des cavités (Code Caves)."""
+        findings = []
+        # Recherche de segments avec permissions RWX (Read-Write-Execute = 7)
+        # Type PT_LOAD avec flags PF_R | PF_W | PF_X
+        if b"\x7fELF" in data_bytes[:4]:
+            if b"\x07\x00\x00\x00" in data_bytes or b"\x00\x00\x00\x07" in data_bytes:
+                findings.append({
+                    "type": "Section / Segment RWX",
+                    "severity": "HAUTE",
+                    "description": "Présence potentielle d'une zone mémoire à la fois inscriptible et exécutable (violation W^X / DEP)."
+                })
+
+        # Détection de grandes zones contiguës de null-bytes ou NOPs (Code Caves / Padding)
+        cave_pattern = re.compile(b"(\x00{32,}|\x90{16,})")
+        caves = []
+        for match in cave_pattern.finditer(data_bytes):
+            caves.append({
+                "offset": match.start(),
+                "offset_hex": hex(match.start()),
+                "length": len(match.group()),
+                "type": "Null-byte cave" if match.group()[0] == 0 else "NOP sled / padding"
+            })
+
+        return {
+            "anomalies": findings,
+            "code_caves": caves[:10],
+            "total_caves_found": len(caves)
+        }
+
+    @staticmethod
+    def calculate_binary_hashes(data_bytes):
+        """Calcule les empreintes cryptographiques pour la vérification d'intégrité binaire."""
+        import hashlib
+        return {
+            "md5": hashlib.md5(data_bytes).hexdigest(),
+            "sha1": hashlib.sha1(data_bytes).hexdigest(),
+            "sha256": hashlib.sha256(data_bytes).hexdigest(),
+            "size_bytes": len(data_bytes)
+        }

@@ -279,6 +279,27 @@ def handle_reverse(args):
             print(f"  {Colors.GREEN}↳{Colors.RESET} {Colors.BOLD}{s}{Colors.RESET}")
         print()
 
+    elif args.action == "audit":
+        hashes = ELFAnalyzer.calculate_binary_hashes(data)
+        audit_res = ELFAnalyzer.detect_suspicious_sections(data)
+        print(f"\n{Colors.CYAN}=== AUDIT DE STRUCTURE & INTÉGRITÉ BINAIRE : {os.path.basename(filepath)} ==={Colors.RESET}")
+        print(f"  {Colors.GREEN}[+] SHA-256 :{Colors.RESET} {hashes['sha256']}")
+        print(f"  {Colors.GREEN}[+] MD5     :{Colors.RESET} {hashes['md5']}")
+        print(f"  {Colors.GREEN}[+] Taille  :{Colors.RESET} {hashes['size_bytes']} octets")
+        print("-" * 65)
+
+        if audit_res["anomalies"]:
+            for an in audit_res["anomalies"]:
+                print(f"  ⚠️ {Colors.YELLOW}[{an['severity']}] {an['type']}{Colors.RESET} : {an['description']}")
+        else:
+            print(f"  {Colors.GREEN}[+] Aucune anomalie critique de permissions RWX détectée.{Colors.RESET}")
+
+        if audit_res["code_caves"]:
+            print(f"\n  {Colors.CYAN}[*] Cavités de code & zones de padding ({audit_res['total_caves_found']} détectées) :{Colors.RESET}")
+            for c in audit_res["code_caves"][:5]:
+                print(f"      ↳ Offset {c['offset_hex']} : {c['length']} octets ({c['type']})")
+        print()
+
 def handle_pwn(args):
     if args.action == "cyclic":
         pattern = PwnHelper.cyclic(args.length)
@@ -648,6 +669,9 @@ def main():
 
     p_rsym = rev_sub.add_parser("symbols", help="Extraire les symboles et fonctions clés")
     p_rsym.add_argument("file", help="Chemin du binaire")
+
+    p_raudit = rev_sub.add_parser("audit", help="Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)")
+    p_raudit.add_argument("file", help="Chemin du binaire")
 
     # 5. Module Pwn
     pwn_p = subparsers.add_parser("pwn", help="Outils Pwn & Buffer Overflow Math")
