@@ -813,27 +813,27 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 ---
 
-## 🛠️ Outils de Scan & d'Audit Intégrés (D-Scan v2.0)
+## 🛠️ Outils de Scan & d'Audit Intégrés (D-Scan v3.0 Ultimate)
 
-Le dépôt intègre une suite complète d'audit de sécurité réseau et web sans dépendances externes (alternative moderne à **Nmap**, **Nikto** et **SSLyze**) :
+Le dépôt intègre une suite complète d'audit de sécurité réseau, OSINT et web sans dépendances externes (alternative moderne et tout-en-un à **Nmap**, **Nikto**, **WhatWeb** et **SSLyze**) :
 
-| Outil | Description & Capacités | Guide & Référence |
+| Outil | Description & Capacités Majeures | Guide & Référence |
 |---|---|---|
-| 🐍 **`scan.py`** | **DSS Ultimate Security Scanner (D-Scan)** :<br>• Scan de ports TCP & UDP (`-sU`) multi-threadé<br>• Détection de services & bannières approfondie (`-sV`)<br>• Corrélation automatique de **CVE & score CVSS**<br>• Audit Web OWASP (En-têtes de sécurité, Cookies, Méthodes HTTP, Fichiers `.git`/`.env` exposés)<br>• Inspection cryptographique SSL/TLS (protocoles, certificats)<br>• Diagnostic réseau & Traceroute TCP/IP<br>• Modèles de vitesse & timing (T1 Furtif à T5 Insane)<br>• Export multi-formats : **HTML interactif**, **XML compatible Nmap**, JSON, Markdown | [Documentation Complète](SCANNER_GUIDE.md) |
-| ⚡ **`c_scanner/`** | **D-Scan C Engine** : Scanner TCP haute performance en C (Sockets non-bloquants `select`, threads POSIX `pthread`, bannières, export JSON). | [Documentation C](SCANNER_GUIDE.md#6-moteur-c-haute-performance-c_scanner) |
+| 🐍 **`scan.py`** | **DSS Ultimate Security Scanner (D-Scan v3.0)** :<br>• **🌍 Géolocalisation IP & OSINT** : Pays, Ville, Coordonnées GPS, FAI, ASN & Reverse DNS<br>• **🛡️ Détection de WAF & CDN** : Cloudflare, AWS CloudFront/WAF, Akamai, Imperva, ModSec<br>• **🧩 Stack & CMS Fingerprinting** : WordPress, Joomla, Laravel, Django, React, Vue, Nginx...<br>• **✉️ Sécurité Email & DNS** : Analyse anti-usurpation SPF (`+all`/`~all`), DMARC et MX<br>• **⚡ Scan TCP & UDP (`-sU`)** : Mesure de latence RTT par port, multi-threading optimisé<br>• **🔍 Détection de Versions (`-sV`)** & **Corrélation CVE/CVSS** en temps réel<br>• **🔐 Audit Web OWASP & SSL/TLS** : En-têtes, cookies, fichiers sensibles (`.env`, `.git`), certificats & découverte SAN<br>• **⏱️ Modèles de Timing** : T1 Furtif à T5 Insane<br>• **📑 Exports Professionnels** : Dashboard HTML interactif (avec lien carte OSM et score Sec), XML compatible Nmap, JSON, Markdown | [Documentation Complète](SCANNER_GUIDE.md) |
+| ⚡ **`c_scanner/`** | **D-Scan C Engine v3.0** : Scanner TCP natif haute cadence en C (Sockets non-bloquants `select`, threads POSIX `pthread`, mesure RTT, bannières, export JSON). | [Documentation C](SCANNER_GUIDE.md#6-moteur-c-haute-performance-c_scanner) |
 
 **Lancement rapide :**
 ```bash
-# Scan agressif complet avec tableau de bord HTML & export XML Nmap
-python3 scan.py -t scanme.nmap.org -A --html dashboard.html --xml scan_nmap.xml
+# Scan complet d'un domaine (OSINT + Ports + WAF + CMS + DNS + SSL + Dashboard HTML)
+python3 scan.py -t example.com -A --html dashboard.html --xml scan_nmap.xml
+
+# Géolocalisation et audit de sécurité DNS (SPF / DMARC)
+python3 scan.py -t mon-entreprise.com --geo --dns-audit --markdown audit_dns.md
 
 # Scan de services & vulnérabilités CVE avec timing rapide T4
-python3 scan.py -t 192.168.1.10 -p 21,22,80,443,3306 -sV -T4 --markdown rapport.md
+python3 scan.py -t 192.168.1.10 -p 21,22,80,443,3306 -sV -T4 --json scan.json
 
-# Scan UDP avec sondes protocolaires authentiques (DNS, NTP, SNMP...)
-python3 scan.py -t 192.168.1.10 -sU
-
-# Scanner C natif haute cadence
+# Scanner C natif avec mesure de latence RTT et export JSON
 cd c_scanner && make && ./port_scanner -t 127.0.0.1 -p top20 -b -o resultats.json
 ```
 

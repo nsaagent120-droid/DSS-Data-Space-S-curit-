@@ -1,12 +1,12 @@
 /**
  * ============================================================================
- *  DSS Security - Scanner Réseau Haute Performance en C (D-Scan C Engine)
+ *  DSS Security - Scanner Réseau Haute Performance en C (D-Scan C Engine v3.0)
  * ============================================================================
  *  Fichier     : c_scanner/port_scanner.c
  *  Auteur      : DSS Security / Cybersecurity Mastery Roadmap
  *  Description : Scanner TCP ultra-rapide avec sockets non-bloquants (select),
- *                multi-threading POSIX (pthread), capture de bannières,
- *                détection de services et export JSON.
+ *                mesure de latence RTT par port, multi-threading POSIX (pthread),
+ *                capture de bannières, détection de services et export JSON.
  *  Compilation : gcc -O2 -pthread port_scanner.c -o port_scanner
  * ============================================================================
  */
@@ -25,7 +25,6 @@
 #include <sys/time.h>
 #include <errno.h>
 
-/* Couleurs ANSI pour terminal */
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
 #define ANSI_COLOR_YELLOW  "\x1b[33m"
@@ -41,7 +40,6 @@
 #define MAX_BANNER_LEN     128
 #define MAX_PORTS          65535
 
-/* Structure d'identification de service connu */
 typedef struct {
     int port;
     const char *service;
@@ -51,7 +49,7 @@ static const ServiceEntry KNOWN_SERVICES[] = {
     {21, "FTP (File Transfer)"},
     {22, "SSH (Secure Shell)"},
     {23, "Telnet (Non-chiffré)"},
-    {25, "SMTP (Mail)"},
+    {25, "SMTP (Mail Transfer)"},
     {53, "DNS (Domain Name)"},
     {80, "HTTP (Web)"},
     {110, "POP3"},
@@ -83,7 +81,6 @@ static const ServiceEntry KNOWN_SERVICES[] = {
     {0, NULL}
 };
 
-/* Liste prédéfinie des 20 ports les plus fréquents */
 static const int TOP_20_PORTS[] = {
     21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 993, 995, 1433, 1521, 3306, 3389, 5432, 8080, 8443
 };
@@ -91,12 +88,12 @@ static const int TOP_20_PORTS[] = {
 
 typedef struct {
     int port;
+    double rtt_ms;
     char status[16];
     char service[64];
     char banner[MAX_BANNER_LEN];
 } ScanResult;
 
-/* Structure de configuration globale */
 typedef struct {
     char target_ip[INET_ADDRSTRLEN];
     char target_host[256];
@@ -141,9 +138,7 @@ void grab_banner(const char *ip, int port, int timeout_ms, char *buffer, size_t 
         if (port == 80 || port == 8080 || port == 8000 || port == 3000) {
             const char *http_req = "HEAD / HTTP/1.0\r\n\r\n";
             send(sock, http_req, strlen(http_req), 0);
-        } else if (port == 22) {
-            /* SSH envoie sa bannière automatiquement */
-        } else {
+        } else if (port != 22) {
             const char *probe = "\r\n";
             send(sock, probe, strlen(probe), 0);
         }
@@ -163,7 +158,7 @@ void grab_banner(const char *ip, int port, int timeout_ms, char *buffer, size_t 
     close(sock);
 }
 
-int scan_port_nonblocking(const char *ip, int port, int timeout_ms) {
+int scan_port_nonblocking(const char *ip, int port, int timeout_ms, double *rtt_ms) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) return 0;
 
@@ -176,8 +171,13 @@ int scan_port_nonblocking(const char *ip, int port, int timeout_ms) {
     server_addr.sin_port = htons(port);
     inet_pton(AF_INET, ip, &server_addr.sin_addr);
 
+    struct timeval t1, t2;
+    gettimeofday(&t1, NULL);
+
     int res = connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (res == 0) {
+        gettimeofday(&t2, NULL);
+        *rtt_ms = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
         close(sock);
         return 1;
     }
@@ -197,6 +197,8 @@ int scan_port_nonblocking(const char *ip, int port, int timeout_ms) {
             socklen_t len = sizeof(sock_error);
             if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &sock_error, &len) == 0) {
                 if (sock_error == 0) {
+                    gettimeofday(&t2, NULL);
+                    *rtt_ms = (t2.tv_sec - t1.tv_sec) * 1000.0 + (t2.tv_usec - t1.tv_usec) / 1000.0;
                     close(sock);
                     return 1;
                 }
@@ -224,7 +226,8 @@ void* worker_thread(void *arg) {
             break;
         }
 
-        if (scan_port_nonblocking(cfg->target_ip, port, cfg->timeout_ms)) {
+        double rtt = 0.0;
+        if (scan_port_nonblocking(cfg->target_ip, port, cfg->timeout_ms, &rtt)) {
             char banner[MAX_BANNER_LEN] = "";
             if (cfg->grab_banners) {
                 grab_banner(cfg->target_ip, port, cfg->timeout_ms, banner, sizeof(banner));
@@ -235,14 +238,15 @@ void* worker_thread(void *arg) {
             pthread_mutex_lock(&cfg->lock);
             if (cfg->open_count < 4096) {
                 cfg->results[cfg->open_count].port = port;
+                cfg->results[cfg->open_count].rtt_ms = rtt;
                 snprintf(cfg->results[cfg->open_count].status, sizeof(cfg->results[cfg->open_count].status), "open");
                 snprintf(cfg->results[cfg->open_count].service, sizeof(cfg->results[cfg->open_count].service), "%s", srv);
                 snprintf(cfg->results[cfg->open_count].banner, sizeof(cfg->results[cfg->open_count].banner), "%s", banner);
                 cfg->open_count++;
             }
 
-            printf("%-8d/tcp   " ANSI_COLOR_GREEN "%-10s" ANSI_COLOR_RESET " %-24s " ANSI_DIM "%s" ANSI_COLOR_RESET "\n",
-                   port, "OUVERT", srv, banner);
+            printf("%-8d/tcp   " ANSI_COLOR_GREEN "%-10s" ANSI_COLOR_RESET " %-7.1fms  %-24s " ANSI_DIM "%s" ANSI_COLOR_RESET "\n",
+                   port, "OUVERT", rtt, srv, banner);
             fflush(stdout);
             pthread_mutex_unlock(&cfg->lock);
         }
@@ -267,7 +271,7 @@ int resolve_hostname(const char *hostname, char *ip_str) {
 void export_json(const ScanConfig *cfg, const char *filename) {
     FILE *f = fopen(filename, "w");
     if (!f) {
-        printf(ANSI_COLOR_RED "[!] Erreur lors de l'ouverture du fichier JSON %s\n" ANSI_COLOR_RESET, filename);
+        printf(ANSI_COLOR_RED "[!] Erreur : Impossible d'écrire dans %s\n" ANSI_COLOR_RESET, filename);
         return;
     }
 
@@ -282,6 +286,7 @@ void export_json(const ScanConfig *cfg, const char *filename) {
         fprintf(f, "      \"port\": %d,\n", cfg->results[i].port);
         fprintf(f, "      \"protocol\": \"tcp\",\n");
         fprintf(f, "      \"status\": \"%s\",\n", cfg->results[i].status);
+        fprintf(f, "      \"latency_ms\": %.2f,\n", cfg->results[i].rtt_ms);
         fprintf(f, "      \"service\": \"%s\",\n", cfg->results[i].service);
         fprintf(f, "      \"banner\": \"%s\"\n", cfg->results[i].banner);
         fprintf(f, "    }%s\n", (i < cfg->open_count - 1) ? "," : "");
@@ -296,8 +301,8 @@ void export_json(const ScanConfig *cfg, const char *filename) {
 void print_banner(void) {
     printf(ANSI_COLOR_CYAN ANSI_BOLD "\n");
     printf("  ==============================================================\n");
-    printf("     DSS C-PORT-SCANNER v2.0 - Scanner POSIX Ultra-Rapide       \n");
-    printf("     Cybersecurity Mastery Roadmap - Programmation Sockets C    \n");
+    printf("     DSS C-PORT-SCANNER v3.0 - Scanner POSIX Ultra-Rapide       \n");
+    printf("     Mesure RTT Latence · Multi-Thread POSIX · Export JSON      \n");
     printf("  ==============================================================\n" ANSI_COLOR_RESET);
 }
 
@@ -405,11 +410,11 @@ int main(int argc, char *argv[]) {
     if (num_threads < 1) num_threads = 1;
 
     printf(ANSI_COLOR_GREEN "[+] Cible : %s (%s)\n" ANSI_COLOR_RESET, cfg.target_host, cfg.target_ip);
-    printf(ANSI_COLOR_CYAN "[*] Total ports à scanner : %d | Threads : %d | Timeout : %d ms\n\n" ANSI_COLOR_RESET,
+    printf(ANSI_COLOR_CYAN "[*] Total ports : %d | Threads : %d | Timeout : %d ms\n\n" ANSI_COLOR_RESET,
            cfg.total_ports, num_threads, cfg.timeout_ms);
 
-    printf(ANSI_BOLD "%-12s %-10s %-24s %s\n" ANSI_COLOR_RESET, "PORT", "ÉTAT", "SERVICE", "BANNIÈRE");
-    printf("--------------------------------------------------------------------------------\n");
+    printf(ANSI_BOLD "%-12s %-10s %-10s %-24s %s\n" ANSI_COLOR_RESET, "PORT", "ÉTAT", "LATENCE", "SERVICE", "BANNIÈRE");
+    printf("----------------------------------------------------------------------------------------\n");
 
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
@@ -426,7 +431,7 @@ int main(int argc, char *argv[]) {
     gettimeofday(&end_time, NULL);
     double elapsed = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
-    printf("--------------------------------------------------------------------------------\n");
+    printf("----------------------------------------------------------------------------------------\n");
     printf(ANSI_COLOR_GREEN "[+] Scan terminé en %.2f secondes — %d port(s) ouvert(s).\n\n" ANSI_COLOR_RESET, elapsed, cfg.open_count);
 
     if (strlen(json_file) > 0) {

@@ -1,74 +1,77 @@
-# 🛡️ DSS Ultimate Security Scanner (D-Scan v2.0) — Guide Complet & Référence
+# 🛡️ DSS Ultimate Security Scanner (D-Scan v3.0) — Guide Complet & Référence
 
-> Suite professionnelle d'audit de sécurité réseau, détection de versions (**-sV**), scan UDP (**-sU**), corrélation CVE en temps réel, audit web OWASP, analyse SSL/TLS et génération de rapports multi-formats (HTML, Nmap XML, JSON, Markdown).
+> Suite d'audit de sécurité réseau, reconnaissance OSINT, **géolocalisation IP & ASN**, détection de **WAF & CMS**, scan de versions (**-sV**), scan UDP (**-sU**), corrélation **CVE / CVSS**, audit web OWASP, sécurité email (SPF/DMARC) et rapports multi-formats (**HTML interactif avec carte OSM, XML Nmap, JSON, Markdown**).
 
 ---
 
 ## 📑 Table des matières
-1. [Comparatif avec les Outils Standards (Nmap, Nikto, SSLyze, Masscan)](#1-comparatif-avec-les-outils-standards)
-2. [Fonctionnalités Clés](#2-fonctionnalités-clés)
-3. [Options et Commandes de `scan.py`](#3-options-et-commandes-de-scanpy)
-4. [Moteurs et Protocoles Spécialisés](#4-moteurs-et-protocoles-spécialisés)
-   - [Détection de Versions et Corrélation CVE (-sV)](#détection-de-versions-et-corrélation-cve--sv)
-   - [Scanner UDP avec Sondes Dédiées (-sU)](#scanner-udp-avec-sondes-dédiées--su)
-   - [Modèles de Timing (T1 à T5)](#modèles-de-timing-t1-à-t5)
-   - [Audit de Sécurité Web (OWASP, Headers, Cookies, Fichiers Sensibles)](#audit-de-sécurité-web)
-   - [Inspection Cryptographique SSL/TLS](#inspection-cryptographique-ssltls)
-   - [Traceroute et Diagnostic Réseau](#traceroute-et-diagnostic-réseau)
-5. [Formats d'Exportation et Rapports](#5-formats-dexportation-et-rapports)
+1. [Comparatif avec les Outils de Référence (Nmap, Nikto, SSLyze, WhatWeb, Masscan)](#1-comparatif-avec-les-outils-de-référence)
+2. [Fonctionnalités Majeures (v3.0)](#2-fonctionnalités-majeures-v30)
+3. [Options et Commandes CLI (`scan.py`)](#3-options-et-commandes-cli-scanpy)
+4. [Détail des Modules & Moteurs d'Audit](#4-détail-des-modules--moteurs-daudit)
+   - [🌍 Géolocalisation IP, ASN, FAI & Reverse DNS](#-géolocalisation-ip-asn-fai--reverse-dns)
+   - [🛡️ Détection de WAF (Web Application Firewall) & CDN](#️-détection-de-waf-web-application-firewall--cdn)
+   - [🧩 Fingerprinting CMS & Stack Technologique](#-fingerprinting-cms--stack-technologique)
+   - [✉️ Audit DNS & Sécurité Email (SPF / DMARC / MX)](#️-audit-dns--sécurité-email-spf--dmarc--mx)
+   - [🔍 Détection de Versions (-sV) & Corrélation CVE](#-détection-de-versions--sv--corrélation-cve)
+   - [📡 Scanner UDP avec Sondes Dédiées (-sU)](#-scanner-udp-avec-sondes-dédiées--su)
+   - [⚡ Mesure de Latence RTT & Modèles de Timing (T1 à T5)](#-mesure-de-latence-rtt--modèles-de-timing-t1-à-t5)
+   - [🔐 Audit Web OWASP, SSL/TLS et Découverte SAN](#-audit-web-owasp-ssltls-et-découverte-san)
+5. [Formats de Rapports (HTML, XML Nmap, JSON, MD)](#5-formats-de-rapports)
 6. [Moteur C Haute Performance (`c_scanner/`)](#6-moteur-c-haute-performance-c_scanner)
-7. [Exemples Concrets d'Utilisation](#7-exemples-concrets-dutilisation)
-8. [Éthique et Conformité](#8-éthique-et-conformité)
+7. [Exemples Concrets d'Audit](#7-exemples-concrets-daudit)
+8. [Éthique et Cadre Légal](#8-éthique-et-cadre-légal)
 
 ---
 
-## 1. Comparatif avec les Outils Standards
+## 1. Comparatif avec les Outils de Référence
 
-| Capacité | **DSS Scanner (D-Scan)** | **Nmap** | **Nikto** | **SSLyze** |
-|---|:---:|:---:|:---:|:---:|
-| **Port Scan TCP & UDP** | ✅ Oui (-sU, TCP) | ✅ Oui | ❌ Non | ❌ Non |
-| **Identification de Versions (-sV)** | ✅ Oui (SSH, HTTP, MySQL, Redis, SMTP, FTP...) | ✅ Oui | ⚠️ Basique | ❌ Non |
-| **Corrélation Automatique CVE / CVSS** | ✅ Intégrée en temps réel | ⚠️ Requiert scripts NSE | ⚠️ Partiel | ❌ Non |
-| **Audit des En-têtes HTTP (OWASP)** | ✅ Complet (CSP, HSTS, XFO...) | ⚠️ Requiert NSE | ✅ Oui | ❌ Non |
-| **Audit Fichiers Sensibles (.git, .env, admin)** | ✅ Inclus | ⚠️ Requiert NSE | ✅ Oui | ❌ Non |
-| **Inspection SSL/TLS & Suites Crypto** | ✅ Inclus (Protocoles, Validité, Cert) | ⚠️ Basique | ❌ Non | ✅ Spécialisé |
-| **Énumération Sous-domaines & Ping Sweep** | ✅ Inclus | ⚠️ Ping sweep seul | ❌ Non | ❌ Non |
-| **Dépendances Externes** | 🟢 **0 dépendance** (Python Standard) | 🔴 Binaire C/C++ lourd | 🔴 Dépendances Perl | 🔴 Dépendances Python |
-| **Dashboard HTML Interactif Moderne** | ✅ Dashboard Dark Theme & Score Sec | ❌ Requiert XSLT | ❌ Rapport texte/HTML brut | ❌ JSON/texte |
-| **Export XML Compatible Nmap** | ✅ Oui (`--xml`) | ✅ Oui | ❌ Non | ❌ Non |
-
----
-
-## 2. Fonctionnalités Clés
-
-- 🚀 **Zéro dépendance** : Fonctionne immédiatement sur tout système équipé de Python 3 standard (Linux, macOS, Windows).
-- ⚡ **Multi-threading Asynchrone** : Pool de threads ajustable pour un scan ultra-rapide sans ralentir le système.
-- 🎯 **Corrélation CVE intelligente** : Analyse des bannières récupérées et confrontation avec une base de vulnérabilités connues (CVSS, titre et solution de remédiation).
-- 🌐 **Audit Web Exhaustif** : Détection des fuites de configuration (`.env`, `.git/HEAD`, dumps SQL, sauvegardes), en-têtes de sécurité manquants, méthodes HTTP à risque (`TRACE`, `PUT`, `DELETE`), et attributs de cookies (`HttpOnly`, `Secure`).
-- 🔒 **Contrôle Cryptographique TLS** : Vérification des versions de protocole (détection de SSLv3/TLS 1.0 dépréciés) et validité temporelle des certificats.
-- 📡 **Traceroute TCP/IP** : Mesure de la topologie réseau et latence RTT par incrémentation du TTL.
-- 📑 **Rapports Professionnels** : Export en HTML avec calcul de score de sécurité, XML compatible avec les parsers Nmap, JSON pour l'automatisation CI/CD, et Markdown pour la documentation.
+| Capacité | **DSS Scanner (D-Scan v3.0)** | **Nmap** | **Nikto** | **WhatWeb** | **SSLyze** |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Port Scan TCP & UDP avec RTT** | ✅ Oui (Latence RTT) | ✅ Oui | ❌ Non | ❌ Non | ❌ Non |
+| **Détection de Versions (-sV)** | ✅ Oui (SSH, HTTP, MySQL, Redis...) | ✅ Oui | ⚠️ Basique | ❌ Non | ❌ Non |
+| **Corrélation CVE / CVSS Automatique** | ✅ Temps réel intégrée | ⚠️ Via NSE | ⚠️ Partiel | ❌ Non | ❌ Non |
+| **Géolocalisation IP, ASN, FAI & Carte OSM** | ✅ Inclus | ❌ Non | ❌ Non | ⚠️ Partiel | ❌ Non |
+| **Détection WAF / CDN (Cloudflare, AWS...)** | ✅ Inclus | ⚠️ Via NSE | ⚠️ Partiel | ✅ Oui | ❌ Non |
+| **Fingerprinting CMS & Frameworks** | ✅ Inclus (WordPress, Laravel...) | ❌ Non | ⚠️ Basique | ✅ Spécialisé | ❌ Non |
+| **Sécurité Email (SPF, DMARC, MX)** | ✅ Inclus (Anti-Spoofing) | ⚠️ Via NSE | ❌ Non | ❌ Non | ❌ Non |
+| **Audit En-têtes HTTP & Fichiers Sensibles** | ✅ Complet (OWASP Top 10) | ⚠️ Via NSE | ✅ Oui | ❌ Non | ❌ Non |
+| **Certificats SSL/TLS & Découverte SAN** | ✅ Inclus | ⚠️ Basique | ❌ Non | ❌ Non | ✅ Spécialisé |
+| **Dépendances Externes** | 🟢 **0 dépendance** (Python 3 Stdlib) | 🔴 Binaire C++ | 🔴 Perl | 🔴 Ruby | 🔴 Python + deps |
+| **Dashboard HTML Interactif (Dark Mode)** | ✅ Dashboard & Score de Sécurité | ❌ Requiert XSLT | ❌ Brut | ❌ Non | ❌ Non |
+| **Export XML Compatible Nmap** | ✅ Oui (`--xml`) | ✅ Oui | ❌ Non | ❌ Non | ❌ Non |
 
 ---
 
-## 3. Options et Commandes de `scan.py`
+## 2. Fonctionnalités Majeures (v3.0)
+
+- 🌍 **Renseignement Géographique & OSINT** : Détermination instantanée du pays, ville, coordonnées GPS, FAI, numéro d'AS (ASN) et Reverse DNS.
+- 🛡️ **Détection Intelligente de WAF** : Empreintes pour Cloudflare, AWS CloudFront/WAF, Akamai, Imperva, Fastly, Sucuri, ModSecurity, F5 BIG-IP.
+- 🧩 **Stack & CMS Fingerprinting** : Détection des technologies web (WordPress, Drupal, Joomla, Laravel, Django, Express, Spring Boot, React, Vue, Nginx, Apache).
+- ✉️ **Audit Anti-Usurpation Email** : Vérification stricte des enregistrements DNS **SPF** (`+all` vulnérable, `~all`, `-all`) et **DMARC** (`p=none`, `p=quarantine`, `p=reject`).
+- ⏱️ **Mesure de Latence Précise** : Calcul du Round-Trip Time (RTT en millisecondes) pour chaque port ouvert.
+- 🔒 **Certificats & Découverte SAN** : Extraction des domaines alternatifs (*Subject Alternative Names*) permettant de découvrir des sous-domaines cachés.
+
+---
+
+## 3. Options et Commandes CLI (`scan.py`)
 
 ```bash
 python3 scan.py -t <cible> [options]
 ```
 
-### 📋 Tableau complet des arguments CLI
+### Tableau des options disponibles :
 
 ```
-Options :
-  -h, --help            Afficher ce message d'aide et quitter
+Options Générales :
+  -h, --help            Afficher ce message d'aide
   -t TARGET, --target TARGET
-                        Cible à analyser (ex: 192.168.1.1, scanme.nmap.org, example.com)
-  --subnet SUBNET       Balayage complet de sous-réseau CIDR (ex: 192.168.1.0/24)
+                        Cible à analyser (IP ou nom de domaine, ex: scanme.nmap.org)
+  --subnet SUBNET       Balayage de sous-réseau CIDR complet (ex: 192.168.1.0/24)
 
-Modes de Scan :
+Modes de Scan & Vitesse :
   -p PORTS, --ports PORTS
-                        Ports spécifiques à scanner (ex: 80,443,8080 ou 1-1024)
+                        Ports spécifiques ou plages (ex: 80,443,8080 ou 1-1024)
   --top-ports {20,100,1000}
                         Scanner les X ports les plus fréquents (défaut : 100)
   -sV, --service-version
@@ -77,108 +80,95 @@ Modes de Scan :
   -T {1,2,3,4,5}, --timing {T1..T5}
                         Modèle de timing : 1=Furtif, 2=Poli, 3=Standard, 4=Agressif, 5=Insane
 
-Modules Avancés :
+Reconnaissance & OSINT Avancé :
+  --geo                 Géolocalisation IP, ASN, FAI et Reverse DNS
+  --dns-audit           Audit DNS et sécurité des e-mails (SPF, DMARC, MX)
   --web                 Audit de sécurité web (en-têtes HTTP, cookies, méthodes, fichiers sensibles)
   --ssl-audit           Audit des suites cryptographiques et certificats SSL/TLS
   --traceroute          Calculer la route réseau et le nombre de sauts vers la cible
   --subdomains          Énumération DNS des sous-domaines courants
-  -A, --full            Mode complet agressif (Ports TCP + -sV + Web + SSL + Subdomains + Traceroute)
+  -A, --full            Mode agressif complet (Tous les modules activés simultanément)
 
-Formats d'Export :
+Exports :
   --json FICHIER        Exporter au format JSON structuré
   --xml FICHIER         Exporter au format XML standard compatible Nmap (-oX)
   --markdown FICHIER    Générer un rapport complet en Markdown
-  --html FICHIER        Générer un tableau de bord interactif moderne en HTML
+  --html FICHIER        Générer un tableau de bord interactif en HTML
 ```
 
 ---
 
-## 4. Moteurs et Protocoles Spécialisés
+## 4. Détail des Modules & Moteurs d'Audit
 
-### Détection de Versions et Corrélation CVE (-sV)
-Le scanner envoie des sondes applicatives ciblées pour extraire les versions réelles des démons distants :
-- **SSH** : Parsing RFC du protocole (`SSH-2.0-OpenSSH_...`).
-- **HTTP / HTTPS** : Analyse des bannières `Server`, `X-Powered-By`, frameworks applicatifs.
-- **FTP / SMTP** : Négociation de session et détection de fonctionnalités (`STARTTLS`, `AUTH`, login anonyme).
-- **Bases de Données (MySQL, Redis)** : Décodage du paquet de handshake binaire MySQL v10 et requêtes d'information Redis.
-- **CVE Matching** : Détection automatique des versions affectées par des failles critiques (ex: Apache Path Traversal, OpenSSH, Redis Lua sandbox escape).
+### 🌍 Géolocalisation IP, ASN, FAI & Reverse DNS
+- Résout le pays, la région, la ville et le code postal.
+- Fournit les coordonnées GPS (Latitude / Longitude) avec lien vers OpenStreetMap.
+- Identifie le fournisseur d'accès (FAI) et le Système Autonome (ASN, ex: `AS15169 Google LLC`).
+- Gère automatiquement les adresses IP privées (RFC 1918) pour éviter les requêtes externes inutiles.
 
-### Scanner UDP avec Sondes Dédiées (-sU)
-Contrairement aux scans UDP aveugles, **D-Scan** envoie de vrais paquets protocolaires :
-- **Port 53 (DNS)** : Requête TXT `version.bind`.
-- **Port 123 (NTP)** : Requête client NTP v3 standard.
-- **Port 161 (SNMP)** : Requête SNMPv1 `get sysDescr` avec la communauté `public`.
-- **Port 137 (NetBIOS)** : Requête de statut de nœud NetBIOS.
-- **Port 1900 (SSDP/UPnP)** : Requête de découverte M-SEARCH.
+### 🛡️ Détection de WAF (Web Application Firewall) & CDN
+- Analyse les en-têtes HTTP spécifiques (`CF-Ray`, `X-Amz-Cf-Id`, `X-Akamai-Transformed`, `X-Iinfo`, `X-Sucuri-Id`, etc.).
+- Identifie les cookies de sécurité spécifiques (ex: F5 `BIGipServer`, Imperva `visid_incap`).
 
-### Modèles de Timing (T1 à T5)
-| Profil | Nom | Concurrence | Timeout | Pause | Utilisation |
-|:---:|---|:---:|:---:|:---:|---|
-| **T1** | Sneaky / Furtif | 5 threads | 4.0s | 200ms | Évasion IDS / pare-feu stricts |
-| **T2** | Polite / Poli | 15 threads | 2.5s | 50ms | Réduction de charge sur serveurs fragiles |
-| **T3** | Normal / Standard | 50 threads | 1.2s | 0ms | Équilibre idéal vitesse / fiabilité |
-| **T4** | Aggressive / Rapide | 100 threads | 0.7s | 0ms | Réseaux locaux et connexions rapides |
-| **T5** | Insane / Ultra | 200 threads | 0.35s | 0ms | Environnements de lab / CTF ultra-rapides |
+### 🧩 Fingerprinting CMS & Stack Technologique
+- Détecte les CMS : WordPress, Joomla!, Drupal, Shopify, Prestashop.
+- Identifie les frameworks Backend : Laravel, Django, Spring Boot, Express.js.
+- Reconnaît les librairies Frontend : React, Vue.js, Bootstrap, Tailwind CSS, jQuery.
+
+### ✉️ Audit DNS & Sécurité Email (SPF / DMARC / MX)
+- **SPF (`v=spf1`)** : Alerte critique si `+all` (permet l'usurpation totale du nom de domaine pour envoyer des spams/phishing au nom de l'entreprise).
+- **DMARC (`_dmarc.domaine`)** : Analyse de la stratégie de rejet (`p=reject`, `p=quarantine` ou `p=none`).
 
 ---
 
-## 5. Formats d'Exportation et Rapports
+## 5. Formats de Rapports
 
-### 1. Tableau de Bord HTML Interactif (`--html dashboard.html`)
-Génère une page web autonome, responsive, en Dark Mode :
-- **Score de Sécurité Dynamique** calculé sur 100 selon le niveau de risque des découvertes.
-- **Tableau des CVE & Vulnérabilités** avec criticité et badges colorés.
-- **Cartographie des Ports & Services** (TCP & UDP).
-- **Audit des En-têtes HTTP & Cookies**.
-- **Alertes Fichiers Sensibles Exposés**.
+### 1. Tableau de Bord HTML Moderne (`--html rapport.html`)
+- **Score de Sécurité Global** calculé dynamiquement sur 100.
+- **Bloc Géolocalisation & OSINT** avec lien cartographique direct.
+- **Badges WAF & Stack Technologique**.
+- **Tableau des CVE & Vulnérabilités** avec criticité et solutions de remédiation.
+- **Cartographie des Ports & Services Réseau** avec latence en millisecondes.
 
-### 2. Rapport XML Compatible Nmap (`--xml report.xml`)
-Permet d'importer directement vos résultats de scan dans des outils d'analyse tiers compatibles Nmap (ex: Metasploit `db_import`, Faraday, Dradis, DefectDojo).
+### 2. Export XML Compatible Nmap (`--xml nmap_out.xml`)
+- Totalement compatible avec les outils tiers (Metasploit `db_import`, Faraday, Dradis, DefectDojo).
 
-### 3. Rapports JSON & Markdown (`--json data.json`, `--markdown report.md`)
-Idéal pour l'intégration dans des pipelines d'intégration continue (CI/CD) ou la documentation technique.
+### 3. Exports JSON & Markdown (`--json data.json`, `--markdown rapport.md`)
 
 ---
 
 ## 6. Moteur C Haute Performance (`c_scanner/`)
-
-Pour les besoins de scan réseau à très haute cadence ou pour pratiquer la programmation système en C :
 
 ```bash
 # Compilation optimisée
 cd c_scanner
 make
 
-# Scan d'un hôte avec capture de bannières et export JSON
-./port_scanner -t 127.0.0.1 -s 1 -e 1024 -w 100 -b -o scan_c.json
+# Scan d'un hôte avec mesure de latence RTT et export JSON
+./port_scanner -t 127.0.0.1 -p top20 -b -o scan_c.json
 ```
 
 ---
 
-## 7. Exemples Concrets d'Utilisation
+## 7. Exemples Concrets d'Audit
 
-### Exemple 1 : Reconnaissance complète d'un serveur Web
+### Exemple 1 : Audit complet OSINT, Web, DNS et Ports
 ```bash
-python3 scan.py -t mon-serveur.local -A --html rapport_complet.html
+python3 scan.py -t example.com -A --html dashboard.html --xml rapport_nmap.xml
 ```
 
-### Exemple 2 : Scan rapide de 1000 ports avec timing agressif (T4)
+### Exemple 2 : Audit de géolocalisation et réputation DNS
 ```bash
-python3 scan.py -t scanme.nmap.org --top-ports 1000 -T4 -sV --markdown synthese.md
+python3 scan.py -t cible.com --geo --dns-audit --markdown audit_dns.md
 ```
 
-### Exemple 3 : Scan combiné TCP et UDP avec rapport XML
+### Exemple 3 : Scan rapide de 1000 ports avec timing agressif (T4) et détection de versions (-sV)
 ```bash
-python3 scan.py -t 192.168.1.10 -p 21,22,53,80,161,443,3306 -sU -sV --xml audit.xml
-```
-
-### Exemple 4 : Balayage d'un sous-réseau entier
-```bash
-python3 scan.py --subnet 192.168.1.0/24 -T4
+python3 scan.py -t 192.168.1.50 --top-ports 1000 -sV -T4 --json ports.json
 ```
 
 ---
 
-## 8. Éthique et Conformité
+## 8. Éthique et Cadre Légal
 
-> ⚠️ **Usage Légal & Responsable** : Ces outils sont conçus exclusivement pour des audits autorisés, l'évaluation de vos propres infrastructures et les environnements d'apprentissage (CTF, laboratoires). Toute utilisation sans consentement préalable est strictement interdite par la loi.
+> ⚠️ **Avertissement Légal** : Cet outil doit être utilisé uniquement sur des infrastructures dont vous êtes propriétaire ou pour lesquelles vous possédez une autorisation écrite formelle. Le scan ou l'audit non autorisé est passible de sanctions pénales.
