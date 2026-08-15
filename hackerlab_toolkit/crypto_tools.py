@@ -293,34 +293,81 @@ class ClassicalCiphers:
         candidates.sort(key=lambda x: x["score"], reverse=True)
         return candidates
 
-    @staticmethod
-    def bacon_decrypt(ciphertext):
-        """Déchiffre le code Bacon (A=AAAAA, B=AAAAB...)."""
-        BACON_DICT = {
-            'AAAAA': 'A', 'AAAAB': 'B', 'AAABA': 'C', 'AAABB': 'D', 'AABAA': 'E',
-            'AABAB': 'F', 'AABBA': 'G', 'AABBB': 'H', 'ABAAA': 'I', 'ABAAB': 'K',
-            'ABABA': 'L', 'ABABB': 'M', 'ABBAA': 'N', 'ABBAB': 'O', 'ABBBA': 'P',
-            'ABBBB': 'Q', 'BAAAA': 'R', 'BAAAB': 'S', 'BAABA': 'T', 'BAABB': 'U',
-            'BABAA': 'W', 'BABAB': 'X', 'BABBA': 'Y', 'BABBB': 'Z'
-        }
-        # Nettoyage et conversion vers A/B
-        clean = []
-        for c in ciphertext:
-            if c.isupper():
-                clean.append('B')
-            elif c.islower():
-                clean.append('A')
-            elif c in ['A', 'a', '0']:
-                clean.append('A')
-            elif c in ['B', 'b', '1']:
-                clean.append('B')
+    @classmethod
+    def repeating_key_xor_break(cls, ciphertext_bytes, max_key_len=16):
+        """Casse un XOR à clé répétée en estimant la taille de clé (distance de Hamming) et la fréquence."""
+        def hamming_distance(b1, b2):
+            return sum(bin(x ^ y).count('1') for x, y in zip(b1, b2))
 
-        seq = "".join(clean)
-        res = []
-        for i in range(0, len(seq) - 4, 5):
-            chunk = seq[i:i+5]
-            res.append(BACON_DICT.get(chunk, '?'))
-        return "".join(res)
+        # Estimation de la longueur de clé (Key size)
+        best_keysizes = []
+        for ksize in range(2, min(max_key_len + 1, len(ciphertext_bytes) // 4)):
+            chunks = [ciphertext_bytes[i:i+ksize] for i in range(0, ksize * 4, ksize)]
+            if len(chunks) >= 4:
+                dist = (hamming_distance(chunks[0], chunks[1]) +
+                        hamming_distance(chunks[1], chunks[2]) +
+                        hamming_distance(chunks[2], chunks[3])) / (3.0 * ksize)
+                best_keysizes.append((ksize, dist))
+
+        best_keysizes.sort(key=lambda x: x[1])
+        candidates = []
+
+        for ksize, _ in best_keysizes[:3]:
+            # Découpage en blocs transposés
+            blocks = [ciphertext_bytes[i::ksize] for i in range(ksize)]
+            key_bytes = []
+            for blk in blocks:
+                single_results = cls.single_byte_xor(blk)
+                if single_results:
+                    key_bytes.append(single_results[0]["key"])
+                else:
+                    key_bytes.append(0)
+
+            guessed_key = bytes(key_bytes)
+            # Déchiffrement avec la clé trouvée
+            dec = bytes([ciphertext_bytes[i] ^ guessed_key[i % len(guessed_key)] for i in range(len(ciphertext_bytes))])
+            dec_text = dec.decode("latin-1", errors="ignore")
+            sc = cls.score_text(dec_text)
+            candidates.append({
+                "keysize": ksize,
+                "key_hex": guessed_key.hex(),
+                "key_str": "".join(chr(b) if 32 <= b <= 126 else f"\\x{b:02x}" for b in guessed_key),
+                "plaintext": dec_text[:120],
+                "score": round(sc, 2)
+            })
+
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        return candidates
+
+    @staticmethod
+    def base64_stego_decode(b64_lines):
+        """Extrait les bits d'information cachés dans le padding Base64 (Stéganographie Base64)."""
+        B64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        hidden_bits = []
+
+        for line in b64_lines:
+            line = line.strip()
+            if not line: continue
+            if line.endswith("=="): # 2 caractères de padding = 4 bits inutilisés
+                c = line[-3]
+                val = B64_TABLE.find(c)
+                bits = format(val & 0x0f, '04b')
+                hidden_bits.append(bits)
+            elif line.endswith("="): # 1 caractère de padding = 2 bits inutilisés
+                c = line[-2]
+                val = B64_TABLE.find(c)
+                bits = format(val & 0x03, '02b')
+                hidden_bits.append(bits)
+
+        bit_string = "".join(hidden_bits)
+        chars = []
+        for i in range(0, len(bit_string) - 7, 8):
+            byte_val = int(bit_string[i:i+8], 2)
+            if 32 <= byte_val <= 126 or byte_val in [10, 13]:
+                chars.append(chr(byte_val))
+            else:
+                break
+        return "".join(chars)
 
     @staticmethod
     def single_byte_xor(data_bytes):
@@ -448,22 +495,56 @@ class RSASolver:
         return {"m": m, "plaintext": bytes.fromhex(hex_m).decode(errors="ignore")}
 
     @classmethod
-    def baby_step_giant_step(cls, g, y, p):
-        """Résout le logarithme discret g^x = y mod p (Algorithme de Shank)."""
-        m = math.isqrt(p) + 1
-        table = {}
-        # Étape 1 : Baby steps (g^(j) mod p)
-        cur = 1
-        for j in range(m):
-            table[cur] = j
-            cur = (cur * g) % p
+    def pollard_p_minus_1(cls, n, b=100000):
+        """Factorisation de Pollard p-1 (quand p-1 est B-smooth)."""
+        a = 2
+        for j in range(2, b):
+            a = pow(a, j, n)
+            d = math.gcd(a - 1, n)
+            if 1 < d < n:
+                p = d
+                q = n // p
+                return p, q
+        return None
 
-        # Étape 2 : Giant steps (y * (g^(-m))^i mod p)
-        g_inv_m = pow(cls.modinv(pow(g, m, p), p), 1, p)
-        cur = y
-        for i in range(m):
-            if cur in table:
-                return i * m + table[cur]
-            cur = (cur * g_inv_m) % p
+    @classmethod
+    def wiener_attack(cls, e, n):
+        """Attaque de Wiener pour RSA quand la clé privée d est petite (d < 1/3 * n^(1/4))."""
+        # Fractions continues pour e/n
+        def rational_to_contfrac(x, y):
+            a = x // y
+            pquotients = [a]
+            while a * y != x:
+                x, y = y, x - a * y
+                a = x // y
+                pquotients.append(a)
+            return pquotients
 
+        def convergents(pquotients):
+            conv = []
+            for i in range(len(pquotients)):
+                p = 0
+                q = 1
+                for j in range(i, -1, -1):
+                    p, q = q, pquotients[j] * q + p
+                conv.append((q, p))
+            return conv
+
+        frac = rational_to_contfrac(e, n)
+        convs = convergents(frac)
+
+        for k, d in convs:
+            if k == 0 or d == 0 or d % 2 == 0:
+                continue
+            phi = (e * d - 1) // k
+            # Résolution de x^2 - ((n - phi) + 1)x + n = 0
+            s = n - phi + 1
+            discr = s * s - 4 * n
+            if discr >= 0:
+                sq = math.isqrt(discr)
+                if sq * sq == discr:
+                    p = (s - sq) // 2
+                    q = (s + sq) // 2
+                    if p * q == n:
+                        return {"d": d, "p": p, "q": q, "phi": phi}
         return None

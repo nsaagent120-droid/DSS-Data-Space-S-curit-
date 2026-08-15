@@ -525,6 +525,80 @@ class AdvancedEmailSecurity:
         return results
 
 # =============================================================================
+# MODULE 7.1 : PARSEUR SECURITY.TXT (RFC 9116) & AUDIT CORS APPROFONDI
+# =============================================================================
+class SecurityPolicyAuditor:
+    """Audit des politiques de divulgation responsable (security.txt RFC 9116) et CORS."""
+
+    @staticmethod
+    def check_security_txt(base_url, timeout=3.0):
+        log_title(f"VÉRIFICATION RFC 9116 (SECURITY.TXT) : {base_url}")
+        results = {"found": False, "url": None, "contact": None, "policy": None}
+
+        paths = ["/.well-known/security.txt", "/security.txt"]
+        for p in paths:
+            target = base_url.rstrip("/") + p
+            try:
+                req = urllib.request.Request(target, headers={"User-Agent": "DSS-SecurityPolicyAuditor/5.0"})
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as res:
+                    if res.status == 200:
+                        content = res.read().decode(errors="ignore")
+                        if "Contact:" in content:
+                            results["found"] = True
+                            results["url"] = target
+                            for line in content.splitlines():
+                                if line.lower().startswith("contact:"):
+                                    results["contact"] = line.split(":", 1)[1].strip()
+                                elif line.lower().startswith("policy:"):
+                                    results["policy"] = line.split(":", 1)[1].strip()
+                            log_success(f"Fichier security.txt DÉTECTÉ sur : {Colors.BOLD}{target}{Colors.RESET}")
+                            if results["contact"]:
+                                log_info(f"Contact de divulgation responsable : {Colors.CYAN}{results['contact']}{Colors.RESET}")
+                            break
+            except Exception:
+                pass
+
+        if not results["found"]:
+            log_info("Aucun fichier security.txt (RFC 9116) configuré.")
+        return results
+
+    @staticmethod
+    def audit_cors_deep(base_url, timeout=3.0):
+        log_title(f"AUDIT CORS APPROFONDI (ORIGINES NULL & REFLETS) : {base_url}")
+        findings = []
+
+        test_origins = [
+            ("Origine Null", "null"),
+            ("Origine Tiers Attaquant", "https://attacker.evil.com"),
+            ("Sous-domaine arbitraire", "https://not-real.example.com")
+        ]
+
+        for desc, orig in test_origins:
+            try:
+                req = urllib.request.Request(
+                    base_url,
+                    headers={"Origin": orig, "User-Agent": "DSS-CORSAuditor/5.0"}
+                )
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as res:
+                    acao = res.headers.get("Access-Control-Allow-Origin")
+                    acac = res.headers.get("Access-Control-Allow-Credentials")
+                    if acao == orig or (acao == "*" and acac == "true"):
+                        findings.append({"test": desc, "origin_sent": orig, "acao": acao, "credentials": acac})
+                        log_danger(f"Mauvaise configuration CORS ({desc}) : ACAO = {acao} (Credentials: {acac})")
+            except Exception:
+                pass
+
+        if not findings:
+            log_success("Politique CORS conforme (Pas de réflexion non sécurisée de l'en-tête Origin).")
+        return findings
+
+# =============================================================================
 # MODULE 8 : GÉOLOCALISATION IP & WAF & STACK
 # =============================================================================
 class IPGeolocation:
@@ -1188,6 +1262,10 @@ def main():
 
         if args.graphql or args.full:
             scan_data["graphql"] = GraphQLAuditor.audit(base_url)
+
+        if args.full or is_domain:
+            scan_data["security_txt"] = SecurityPolicyAuditor.check_security_txt(base_url)
+            scan_data["cors_audit"] = SecurityPolicyAuditor.audit_cors_deep(base_url)
 
         wa = WebAuditor(base_url)
         scan_data["web_audit"] = wa.run()

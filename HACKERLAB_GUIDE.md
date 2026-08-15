@@ -28,11 +28,12 @@ Le script `hackerlab.py` regroupe l'intégralité des outils nécessaires pour u
 | Domaine | Outils & Capacités Incluses |
 |---|---|
 | **🛡️ Scanner Intégré** | D-Scan v3.0 (Scan TCP & UDP, Versions -sV, OSINT Geo, WAF, CMS, DNS, SSL, Rapports HTML/XML). |
-| **🔐 Cryptographie** | Décodeur multi-formats (Base64, Hex, Binaire, Morse, ROT13), Chiffres classiques (César, Vigenère, Rail Fence, Affine, Bacon), Bruteforce XOR 1-octet, Hashes ID, Solveurs RSA (p, q, e -> d, racine e, Fermat) et Logarithme Discret (Baby-step Giant-step). |
+| **🔐 Cryptographie** | Décodeur multi-formats (Base64, Hex, Binaire, Morse, ROT13), Chiffres classiques (César, Vigenère, Rail Fence, Affine, Bacon), Bruteforce XOR 1-octet & multi-octets, Hashes ID, Solveurs RSA (p, q, e -> d, racine e, Fermat, **Attaque de Wiener**, **Pollard p-1**), Logarithme Discret et Stégano Base64. |
 | **🔬 Forensics** | Magic bytes / Headers, Entropie Shannon, Réparateur de dimensions PNG corrompues (CRC32 IHDR), File carving, Chasseur de flags CTF. |
-| **⚙️ Reverse** | Checksec ELF natif (NX, PIE, Canary, RELRO, Stripped), extracteur de symboles et fonctions clés, détection de packers (UPX). |
+| **⚙️ Reverse** | Checksec ELF natif (NX, PIE, Canary, RELRO, Stripped), extracteur de symboles et fonctions clés, détection de packers (UPX), générateur de scripts GDB/Pwndbg avec hooks strcmp, détection d'anti-debug et scanner de ROP gadgets. |
 | **💥 Pwn** | Générateur cyclique de De Bruijn (`cyclic`), calculateur d'offset de crash (`find`), packing Little-Endian (`p32`/`p64`), vérificateur de badchars. |
-| **🌐 Web** | Inspecteur & forgeur JWT (`alg: none`), bibliothèque de payloads SSTI (Jinja2, Twig, ERB), regex d'audit de code source. |
+| **🌐 Web** | Inspecteur & forgeur JWT (`alg: none`), bibliothèque de payloads SSTI (Jinja2, Twig, ERB), payloads NoSQL Injection (MongoDB) et XXE (XML External Entity), encodeur de contournement WAF. |
+| **🔍 Audit de Code** | Linter statique de sécurité C/C++ (détection de strcpy, gets, sprintf, format strings) et comparateur de patchs de sécurité (Patch Diffing). |
 | **📡 PCAP / Réseau** | Parseur de captures réseau sans Wireshark (DNS, HTTP, identifiants en clair FTP/Basic Auth, flags en transit). |
 | **🌍 OSINT & Wordlists** | Calculateur de sous-réseaux CIDR, générateur de Google Dorks, constructeur OUI MAC, générateur de mutations Leetspeak CTF. |
 | **🤖 Assistant IA** | Classificateur d'énoncés, checklists méthodologiques pas-à-pas par catégorie, diagnostiqueur heuristique et générateur de prompts LLM. |
@@ -85,6 +86,15 @@ python3 hackerlab.py crypto hash-id "5d41402abc4b2a76b9719d911017c592"
 
 # Solveur RSA classique (p, q, e -> d et déchiffrement de c)
 python3 hackerlab.py crypto rsa-pq -p 61 -q 53 -e 17 -c 2790
+
+# Attaque de Wiener pour RSA (quand la clé privée d est petite)
+python3 hackerlab.py crypto wiener -e 17993 -n 90581
+
+# Factorisation de Pollard p-1
+python3 hackerlab.py crypto pollard -n 1392709
+
+# Casseur XOR à clé répétée multi-octets (distance de Hamming)
+python3 hackerlab.py crypto xor-break "1b37373331363f78151b7f2b783431333d"
 
 # Résoudre un logarithme discret (g^x = y mod p)
 python3 hackerlab.py crypto dlog -g 2 -y 8 -p 11
@@ -147,7 +157,7 @@ python3 hackerlab.py pwn pack 0x080484b6
 python3 hackerlab.py pwn badchars "31c050682f2f736800"
 ```
 
-### 🌐 6. Sécurité Web & Code Audit (`web`)
+### 🌐 6. Sécurité Web & Payloads (`web`)
 ```bash
 # Décoder un token JWT sans signature
 python3 hackerlab.py web jwt-decode "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -155,8 +165,26 @@ python3 hackerlab.py web jwt-decode "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 # Forger un JWT non signé (alg: none)
 python3 hackerlab.py web jwt-forge '{"typ":"JWT"}' '{"user":"admin","role":"admin"}'
 
-# Afficher la bibliothèque de payloads SSTI
+# Afficher la bibliothèque de payloads SSTI (Jinja2, Twig, ERB...)
 python3 hackerlab.py web ssti
+
+# Afficher les payloads d'injections NoSQL (MongoDB)
+python3 hackerlab.py web nosql
+
+# Afficher les payloads d'injections XXE (XML External Entity)
+python3 hackerlab.py web xxe
+
+# Encoder un payload pour tester les bypasses WAF (double-url, hex, html-entities, charcode)
+python3 hackerlab.py web encode "SELECT * FROM users" -t double-url
+```
+
+### 🔍 7. Audit de Code Source & Patch Diffing (`audit`)
+```bash
+# Audit statique de sécurité d'un fichier source C/C++
+python3 hackerlab.py audit code programme_vuln.c
+
+# Comparer deux versions de code pour analyser les correctifs de sécurité (Patch Diffing)
+python3 hackerlab.py audit diff version_vuln.c version_corrigee.c
 ```
 
 ### 📡 7. Analyse Réseau & PCAP (`pcap`)

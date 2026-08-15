@@ -31,22 +31,24 @@ try:
     from hackerlab_toolkit.crypto_tools import MultiDecoder, ClassicalCiphers, HashIdentifier, RSASolver
     from hackerlab_toolkit.forensics_tools import ForensicsAnalyzer
     from hackerlab_toolkit.reversing_tools import ELFAnalyzer
-    from hackerlab_toolkit.web_tools import JWTTool, SSTIPayloadHelper, CodeAuditor
+    from hackerlab_toolkit.web_tools import JWTTool, SSTIPayloadHelper, CodeAuditor, WebPayloads
     from hackerlab_toolkit.pcap_tools import PCAPAnalyzer
     from hackerlab_toolkit.pwn_tools import PwnHelper
     from hackerlab_toolkit.osint_tools import OSINTToolkit
     from hackerlab_toolkit.wordlist_tools import WordlistMutator
+    from hackerlab_toolkit.patch_audit_tools import SourceCodeAuditor
     from hackerlab_toolkit.ai_assistant import CTFAIAssistant
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from hackerlab_toolkit.crypto_tools import MultiDecoder, ClassicalCiphers, HashIdentifier, RSASolver
     from hackerlab_toolkit.forensics_tools import ForensicsAnalyzer
     from hackerlab_toolkit.reversing_tools import ELFAnalyzer
-    from hackerlab_toolkit.web_tools import JWTTool, SSTIPayloadHelper, CodeAuditor
+    from hackerlab_toolkit.web_tools import JWTTool, SSTIPayloadHelper, CodeAuditor, WebPayloads
     from hackerlab_toolkit.pcap_tools import PCAPAnalyzer
     from hackerlab_toolkit.pwn_tools import PwnHelper
     from hackerlab_toolkit.osint_tools import OSINTToolkit
     from hackerlab_toolkit.wordlist_tools import WordlistMutator
+    from hackerlab_toolkit.patch_audit_tools import SourceCodeAuditor
     from hackerlab_toolkit.ai_assistant import CTFAIAssistant
 
 class Colors:
@@ -159,6 +161,35 @@ def handle_crypto(args):
         print(f"  {Colors.GREEN}[+] Modulus (n)       :{Colors.RESET} {res['n']}")
         print(f"  {Colors.GREEN}[+] Clé privée (d)    :{Colors.RESET} {res['d']}")
         print(f"  {Colors.GREEN}[+] Message déchiffré :{Colors.RESET} {Colors.BOLD}{Colors.YELLOW}{res['plaintext']}{Colors.RESET}\n")
+
+    elif args.action == "wiener":
+        res = RSASolver.wiener_attack(args.e, args.n)
+        print(f"\n{Colors.CYAN}=== ATTAQUE DE WIENER SUR RSA (PETIT d) ==={Colors.RESET}")
+        if res:
+            print(f"  {Colors.GREEN}[+] Clé privée d trouvée :{Colors.RESET} {Colors.BOLD}{Colors.YELLOW}{res['d']}{Colors.RESET}")
+            print(f"  {Colors.GREEN}[+] Facteur p            :{Colors.RESET} {res['p']}")
+            print(f"  {Colors.GREEN}[+] Facteur q            :{Colors.RESET} {res['q']}\n")
+        else:
+            print(f"  {Colors.RED}[!] Attaque de Wiener échouée (d trop grand ou fractions épuisées).{Colors.RESET}\n")
+
+    elif args.action == "pollard":
+        res = RSASolver.pollard_p_minus_1(args.n)
+        print(f"\n{Colors.CYAN}=== FACTORISATION DE POLLARD p-1 ==={Colors.RESET}")
+        if res:
+            p, q = res
+            print(f"  {Colors.GREEN}[+] Facteur p :{Colors.RESET} {Colors.BOLD}{Colors.YELLOW}{p}{Colors.RESET}")
+            print(f"  {Colors.GREEN}[+] Facteur q :{Colors.RESET} {q}\n")
+        else:
+            print(f"  {Colors.RED}[!] Factorisation de Pollard échouée.{Colors.RESET}\n")
+
+    elif args.action == "xor-break":
+        hex_data = args.hex_data.replace(" ", "").replace("0x", "")
+        raw_b = bytes.fromhex(hex_data)
+        candidates = ClassicalCiphers.repeating_key_xor_break(raw_b)
+        print(f"\n{Colors.CYAN}=== CASSEUR XOR À CLÉ RÉPÉTÉE (MULTI-OCTETS) ==={Colors.RESET}\n")
+        for c in candidates:
+            print(f"  {Colors.GREEN}[+] Clé estimée ({c['keysize']} octets) : {Colors.BOLD}{c['key_str']}{Colors.RESET} (Score: {c['score']})")
+            print(f"      ↳ {c['plaintext']}\n")
 
     elif args.action == "dlog":
         res = RSASolver.baby_step_giant_step(args.g, args.y, args.p)
@@ -432,6 +463,57 @@ def handle_web(args):
                 print(f"  ↳ {p}")
             print()
 
+    elif args.action == "nosql":
+        print(f"\n{Colors.CYAN}=== PAYLOADS D'INJECTION NOSQL (MONGODB) ==={Colors.RESET}\n")
+        for pl in WebPayloads.get_nosql():
+            print(f"  {Colors.BOLD}{Colors.YELLOW}[ {pl['desc']} ]{Colors.RESET}")
+            print(f"  ↳ {pl['payload']}\n")
+
+    elif args.action == "xxe":
+        print(f"\n{Colors.CYAN}=== PAYLOADS D'INJECTION XXE (XML EXTERNAL ENTITY) ==={Colors.RESET}\n")
+        for pl in WebPayloads.get_xxe():
+            print(f"  {Colors.BOLD}{Colors.YELLOW}[ {pl['desc']} ]{Colors.RESET}")
+            print(f"  ↳ {pl['payload']}\n")
+
+    elif args.action == "encode":
+        enc = WebPayloads.encode_payload(args.payload, encoding_type=args.type)
+        print(f"\n{Colors.GREEN}[+] Payload Encodé ({args.type}) :{Colors.RESET} {Colors.BOLD}{enc}{Colors.RESET}\n")
+
+def handle_audit(args):
+    if args.action == "code":
+        filepath = args.file
+        if not os.path.exists(filepath):
+            print(f"{Colors.RED}[!] Fichier introuvable : {filepath}{Colors.RESET}")
+            return
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            code = f.read()
+        findings = SourceCodeAuditor.audit_c_code(code)
+        print(f"\n{Colors.CYAN}=== AUDIT STATIQUE DE CODE SOURCE C/C++ : {os.path.basename(filepath)} ==={Colors.RESET}\n")
+        if not findings:
+            print(f"  {Colors.GREEN}[+] Aucune fonction dangereuse standard détectée.{Colors.RESET}\n")
+        else:
+            for fd in findings:
+                col = Colors.RED if fd["severity"] == "CRITICAL" else Colors.YELLOW
+                print(f"  [{col}{fd['severity']}{Colors.RESET}] Ligne {fd['line']} : {Colors.BOLD}{fd['vulnerability']}{Colors.RESET}")
+                print(f"      Code : {Colors.DIM}{fd['code']}{Colors.RESET}")
+                print(f"      💡 Solution : {fd['remediation']}\n")
+
+    elif args.action == "diff":
+        f1, f2 = args.file1, args.file2
+        if not os.path.exists(f1) or not os.path.exists(f2):
+            print(f"{Colors.RED}[!] Un des fichiers est introuvable.{Colors.RESET}")
+            return
+        with open(f1, "r", errors="ignore") as f: c1 = f.read()
+        with open(f2, "r", errors="ignore") as f: c2 = f.read()
+        res = SourceCodeAuditor.diff_patches(c1, c2)
+        print(f"\n{Colors.CYAN}=== ANALYSE DE DIFF DE PATCH & SÉCURITÉ ==={Colors.RESET}\n")
+        if res["security_checks_introduced"]:
+            print(f"  {Colors.GREEN}🛡️ Checks de sécurité ajoutés par le patch :{Colors.RESET}")
+            for sc in res["security_checks_introduced"]:
+                print(f"      ↳ {Colors.BOLD}{sc}{Colors.RESET}")
+            print()
+        print(res["diff_text"])
+
 def handle_pcap(args):
     filepath = args.file
     if not os.path.exists(filepath):
@@ -702,6 +784,9 @@ def main():
     p_xor = crypto_sub.add_parser("xor", help="Bruteforce XOR sur 1 octet")
     p_xor.add_argument("hex_data", help="Données en chaîne hexadécimale")
 
+    p_xorb = crypto_sub.add_parser("xor-break", help="Casser un XOR à clé répétée multi-octets")
+    p_xorb.add_argument("hex_data", help="Données hexadécimales")
+
     p_hash = crypto_sub.add_parser("hash-id", help="Identifier le type d'un hash")
     p_hash.add_argument("hash_str", help="Chaîne du hash")
 
@@ -710,6 +795,13 @@ def main():
     p_rsa.add_argument("-q", type=int, required=True, help="Nombre premier q")
     p_rsa.add_argument("-e", type=int, default=65537, help="Exposant public e")
     p_rsa.add_argument("-c", type=int, required=True, help="Ciphertext c")
+
+    p_wien = crypto_sub.add_parser("wiener", help="Attaque de Wiener pour petit d sur RSA")
+    p_wien.add_argument("-e", type=int, required=True, help="Exposant public e")
+    p_wien.add_argument("-n", type=int, required=True, help="Modulus n")
+
+    p_poll = crypto_sub.add_parser("pollard", help="Factorisation de Pollard p-1")
+    p_poll.add_argument("-n", type=int, required=True, help="Modulus n")
 
     p_dlog = crypto_sub.add_parser("dlog", help="Résoudre le logarithme discret (g^x = y mod p)")
     p_dlog.add_argument("-g", type=int, required=True, help="Base g")
@@ -790,6 +882,23 @@ def main():
     p_wforge.add_argument("payload", help="Payload JSON")
 
     web_sub.add_parser("ssti", help="Afficher les payloads de test SSTI")
+    web_sub.add_parser("nosql", help="Afficher les payloads de test NoSQL Injection")
+    web_sub.add_parser("xxe", help="Afficher les payloads de test XXE")
+
+    p_wenc = web_sub.add_parser("encode", help="Encoder un payload pour bypass WAF (double-url, hex, html-entities, charcode)")
+    p_wenc.add_argument("payload", help="Payload brut")
+    p_wenc.add_argument("-t", "--type", choices=["url", "double-url", "hex", "html-entities", "charcode"], default="double-url", help="Type d'encodage")
+
+    # 7. Module Audit de Code Source
+    audit_p = subparsers.add_parser("audit", help="Audit statique de code source C/C++ et Patch Diffing")
+    audit_sub = audit_p.add_subparsers(dest="action")
+
+    p_acode = audit_sub.add_parser("code", help="Linter statique de sécurité pour code source C/C++")
+    p_acode.add_argument("file", help="Chemin du fichier source C/C++")
+
+    p_adiff = audit_sub.add_parser("diff", help="Comparer deux versions de code pour analyser les correctifs de sécurité")
+    p_adiff.add_argument("file1", help="Version originale (vulnérable)")
+    p_adiff.add_argument("file2", help="Version corrigée (patch)")
 
     # 7. Module PCAP
     pcap_p = subparsers.add_parser("pcap", help="Analyseur de captures réseau PCAP")
@@ -859,6 +968,8 @@ def main():
         handle_osint(args)
     elif args.module == "wordlist":
         handle_wordlist(args)
+    elif args.module == "audit":
+        handle_audit(args)
     elif args.module == "ai":
         handle_ai(args)
 
