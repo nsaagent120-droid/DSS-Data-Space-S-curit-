@@ -1,0 +1,36 @@
+# Binaires & Fichiers Objets
+*.o
+*.out
+*.exe
+port_scanner
+c_port_scanner
+variable
+
+# Répertoires de build CMake
+build/
+bin/
+lib/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.cmake
+CTestTestfile.cmake
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Rapports temporaires
+*.log
+scan_report.*
+test_scan.*
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp

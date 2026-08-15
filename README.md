@@ -813,41 +813,99 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 ---
 
+## 🛠️ Outils & Boîtes à Outils Intégrées
+
+Le dépôt met à disposition deux suites de sécurité majeures développées sur-mesure (0 dépendance externe requise) :
+
+### 1. 🛡️ DSS Ultimate Security Scanner — D-Scan v4.0 Enterprise / ASM Edition (`scan.py` & `c_scanner/`)
+Plateforme complète d'Attack Surface Management (ASM), d'audit réseau et de conformité :
+- **Reconnaissance & OSINT Furtif** : Surveillance passive **CT Logs** (`crt.sh`), géolocalisation IP & ASN, Reverse DNS, détection de WAF & CMS.
+- **Fuites Cloud & Secrets JS** : Détection de **Buckets Cloud publics** (AWS S3, GCP, Azure) et extraction de clés d'API dans les scripts JavaScript.
+- **Audit Web & API** : Introspection d'API **GraphQL**, dérive de pare-feu **IPv4 vs IPv6**, conformité email **MTA-STS / BIMI / SPF / DMARC**, vérification RFC 9116 (`security.txt`).
+- **Scan Réseau & Vulnérabilités** : Scan TCP & UDP (`-sU`) avec calcul de latence RTT par port, versions (`-sV`) et corrélation CVE / CVSS.
+- **Reporting & Matrice MITRE** : Tableau de bord HTML interactif avec **score de sécurité dynamique, cartographie MITRE ATT&CK et lien OpenStreetMap**, XML compatible Nmap (`-oX`), JSON et Markdown.
+- **Guide complet** : [Consulter SCANNER_GUIDE.md](SCANNER_GUIDE.md).
+
+### 2. ⚔️ HackerLab CTF Toolkit & Assistant IA (`hackerlab.py` & `hackerlab_toolkit/`)
+Boîte à outils multi-spécialités conçue pour exceller dans les compétitions **HackerLab / CTF** :
+- **🔐 Cryptographie** : Décodeur multi-formats, solveur César, Vigenère, Rail Fence, Affine, Bacon, XOR (1-octet & multi-octets), hashes ID, solveurs RSA (`p, q, e -> d`, racine $e$, **Attaque de Wiener**, **Pollard p-1**), logarithme discret et stéganographie Base64.
+- **🔬 Forensics & Stéganographie** : Magic bytes, calcul d'entropie Shannon, **réparateur de dimensions PNG corrompues (CRC32 IHDR)**, carving de fichiers cachés, chasseur automatique de flags.
+- **⚙️ Reverse Engineering** : Checksec ELF, **Perfectionneur de Décompilation Ghidra (`clean-decompile`)**, script **Ghidra Headless**, détection de packers (*Detect It Easy*), dépaquetage automatique UPX, générateur de scripts GDB/Pwndbg avec hooks `strcmp`, détection anti-debug et ROP gadgets.
+- **💥 Pwn & Buffer Overflow** : Séquences de De Bruijn (`cyclic`), calculateur d'offset exact (`find`), packing Little-Endian (`p32`/`p64`), badchars checker.
+- **🌐 Sécurité Web & Code Audit** : Inspecteur & forgeur JWT (`alg: none`), bibliothèque de payloads SSTI, payloads NoSQL Injection (MongoDB) et XXE (XML External Entity), encodeur de contournement WAF.
+- **🔍 Audit de Code Source** : Linter statique de sécurité C/C++ et comparateur de patchs (Patch Diffing).
+- **📡 Analyse Réseau / PCAP** : Parseur PCAP autonome (DNS, HTTP, identifiants en clair et flags en transit).
+- **🌍 OSINT & Wordlists** : Calculateur CIDR, générateur de Google Dorks, constructeur OUI MAC, mutateur Leetspeak CTF.
+- **🤖 Assistant IA & Méthodologies** : Diagnostic d'énoncés, checklists méthodologiques pas-à-pas et générateur de prompts optimisés pour LLM.
+- **Guide complet** : [Consulter HACKERLAB_GUIDE.md](HACKERLAB_GUIDE.md).
+
+---
+
+## 🚀 Installation & Démarrage Rapide
+
+```bash
+# 1. Installation en 1 clic (configure les permissions, alias et compile le moteur C)
+chmod +x install.sh && ./install.sh
+
+# 2. Lancer le mode interactif de la boîte à outils HackerLab
+hackerlab
+# ou : python3 hackerlab.py
+
+# 3. Déchiffrer un message ou identifier un hash en CTF
+python3 hackerlab.py crypto decode "SGFja2VyTGFiIENURg=="
+python3 hackerlab.py crypto hash-id "5d41402abc4b2a76b9719d911017c592"
+
+# 4. Perfectionner du code brut décompilé par Ghidra
+python3 hackerlab.py reverse clean-decompile code_ghidra.c -o code_propre.c
+
+# 5. Demander une analyse et méthodologie à l'Assistant IA
+python3 hackerlab.py ai analyze -t "RSA Strange Primes" -d "p et q sont très proches"
+
+# 6. Scanner une cible avec le scanner de sécurité complet
+python3 scan.py -t example.com -A --html rapport.html
+```
+
+---
+
 ## 📁 Structure de ce dépôt
 
 ```
-📂 cybersecurity-learning/
+📂 DSS-Data-Space-S-curit-/
 ├── 📄 README.md                    ← ce fichier
-├── 📂 phase0-fondations/
-│   ├── 📂 c-exercises/             ← exercices C commentés
-│   ├── 📂 asm-examples/            ← snippets assembleur annotés
-│   └── 📂 gdb-cheatsheet/          ← commandes GDB avec exemples
-├── 📂 phase1-reverse-engineering/
-│   ├── 📂 crackmes/                ← solutions commentées
-│   ├── 📂 ghidra-scripts/          ← scripts d'automatisation
-│   └── 📂 writeups/                ← CTF writeups RE
-├── 📂 phase2-exploitation/
-│   ├── 📂 stack-bof/               ← stack overflow labs
-│   ├── 📂 heap/                    ← heap exploitation labs
-│   ├── 📂 rop/                     ← ROP chains
-│   └── 📂 writeups/                ← CTF writeups pwn
-├── 📂 phase3-audit/
-│   ├── 📂 vulnerable-patterns/     ← patterns de code dangereux
-│   ├── 📂 static-analysis/         ← configs Semgrep/CodeQL
-│   └── 📂 reports/                 ← rapports d'audit (anonymisés)
-├── 📂 phase4-0days/
-│   ├── 📂 fuzzing-setups/          ← configs AFL++
-│   ├── 📂 patch-analysis/          ← analyses de CVE
-│   └── 📂 pocs/                    ← PoC pour vulns divulguées
-├── 📂 phase5-kernel/
-│   ├── 📂 modules/                 ← modules kernel expérimentaux
-│   └── 📂 writeups/                ← kernel CTF writeups
-├── 📂 phase6-firmware/
-│   ├── 📂 analysis/                ← analyses de firmware
-│   └── 📂 tools/                   ← scripts d'extraction
-└── 📂 resources/
-    ├── 📄 cheatsheets/             ← anti-sèches rapides
-    └── 📄 bookmarks.md             ← liens utiles organisés
+├── 📄 install.sh                   ← script d'installation automatisé en 1-clic
+├── 📄 HACKERLAB_GUIDE.md           ← guide complet de la boîte à outils HackerLab & IA
+├── 📄 SCANNER_GUIDE.md             ← guide complet des scanners de sécurité
+├── 📄 hackerlab.py                 ← CLI unifiée HackerLab CTF Toolkit (v2.0 Ultimate)
+├── 📂 hackerlab_toolkit/           ← modules spécialisés (Crypto, Forensics, Reverse, Pwn, Web, Audit, PCAP, IA)
+│   ├── 📄 crypto_tools.py          ← solveurs crypto, RSA (Wiener, Pollard), XOR, Vigenère
+│   ├── 📄 forensics_tools.py       ← magic bytes, entropie, réparateur PNG CRC32, flags
+│   ├── 📄 reversing_tools.py       ← checksec ELF, DIE packers, anti-debug, ROP gadgets, GDB hooks
+│   ├── 📄 ghidra_cleaner.py        ← perfectionneur sémantique de code décompilé Ghidra
+│   ├── 📄 pwn_tools.py             ← cyclic De Bruijn, offset finder, p32/p64, badchars
+│   ├── 📄 web_tools.py             ← JWT forge (alg: none), SSTI, NoSQL, XXE, encodeur WAF
+│   ├── 📄 patch_audit_tools.py     ← linter de sécurité C/C++ et patch diffing
+│   ├── 📄 pcap_tools.py            ← parseur de trafic réseau autonome (DNS, HTTP, auth)
+│   ├── 📄 osint_tools.py           ← calculateur CIDR, Google Dorks, constructeur MAC OUI
+│   ├── 📄 wordlist_tools.py        ← mutateur de dictionnaires Leetspeak CTF
+│   └── 📄 ai_assistant.py          ← assistant IA (diagnostic de challenge, checklists, prompts LLM)
+├── 📂 ghidra_scripts/              ← scripts d'automatisation Ghidra Headless Analyzer
+│   ├── 📄 ExportDecompiledC.java   ← exportateur Java Ghidra
+│   └── 📄 headless_decompile.py    ← wrapper d'automatisation headless
+├── 📄 scan.py                      ← scanner de vulnérabilités, ASM & réseau Python (v4.0)
+├── 📂 c_scanner/                   ← scanner TCP haute performance en C (pthread/sockets)
+│   ├── 📄 port_scanner.c
+│   └── 📄 Makefile
+├── 📄 CMakeLists.txt               ← configuration de build CMake & CI
+├── 📄 PROGRESSION 1.md             ← guide des fondamentaux du langage C
+├── 📄 variable.c                   ← exercices pratiques C
+├── 📂 phase0-fondations/           ← roadmap phase 0
+├── 📂 phase1-reverse-engineering/  ← roadmap phase 1
+├── 📂 phase2-exploitation/         ← roadmap phase 2
+├── 📂 phase3-audit/                ← roadmap phase 3
+├── 📂 phase4-0days/                ← roadmap phase 4
+├── 📂 phase5-kernel/               ← roadmap phase 5
+├── 📂 phase6-firmware/             ← roadmap phase 6
+└── 📂 resources/                   ← anti-sèches et ressources utiles
 ```
 
 ---
