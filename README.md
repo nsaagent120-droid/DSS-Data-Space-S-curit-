@@ -813,28 +813,45 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 ---
 
-## 🛠️ Outils de Scan & d'Audit Intégrés (D-Scan v3.0 Ultimate)
+## 🛠️ Outils & Boîtes à Outils Intégrées
 
-Le dépôt intègre une suite complète d'audit de sécurité réseau, OSINT et web sans dépendances externes (alternative moderne et tout-en-un à **Nmap**, **Nikto**, **WhatWeb** et **SSLyze**) :
+Le dépôt met à disposition deux boîtes à outils de niveau professionnel développées sur-mesure :
 
-| Outil | Description & Capacités Majeures | Guide & Référence |
-|---|---|---|
-| 🐍 **`scan.py`** | **DSS Ultimate Security Scanner (D-Scan v3.0)** :<br>• **🌍 Géolocalisation IP & OSINT** : Pays, Ville, Coordonnées GPS, FAI, ASN & Reverse DNS<br>• **🛡️ Détection de WAF & CDN** : Cloudflare, AWS CloudFront/WAF, Akamai, Imperva, ModSec<br>• **🧩 Stack & CMS Fingerprinting** : WordPress, Joomla, Laravel, Django, React, Vue, Nginx...<br>• **✉️ Sécurité Email & DNS** : Analyse anti-usurpation SPF (`+all`/`~all`), DMARC et MX<br>• **⚡ Scan TCP & UDP (`-sU`)** : Mesure de latence RTT par port, multi-threading optimisé<br>• **🔍 Détection de Versions (`-sV`)** & **Corrélation CVE/CVSS** en temps réel<br>• **🔐 Audit Web OWASP & SSL/TLS** : En-têtes, cookies, fichiers sensibles (`.env`, `.git`), certificats & découverte SAN<br>• **⏱️ Modèles de Timing** : T1 Furtif à T5 Insane<br>• **📑 Exports Professionnels** : Dashboard HTML interactif (avec lien carte OSM et score Sec), XML compatible Nmap, JSON, Markdown | [Documentation Complète](SCANNER_GUIDE.md) |
-| ⚡ **`c_scanner/`** | **D-Scan C Engine v3.0** : Scanner TCP natif haute cadence en C (Sockets non-bloquants `select`, threads POSIX `pthread`, mesure RTT, bannières, export JSON). | [Documentation C](SCANNER_GUIDE.md#6-moteur-c-haute-performance-c_scanner) |
+### 1. 🛡️ DSS Ultimate Security Scanner (`scan.py` & `c_scanner/`)
+Suite d'audit de sécurité réseau, OSINT et web sans dépendances externes (alternative moderne à **Nmap**, **Nikto**, **WhatWeb** et **SSLyze**) :
+- **Reconnaissance & OSINT** : Géolocalisation IP, ASN, FAI, Reverse DNS, détection de WAF & CMS.
+- **Scan de Ports & Versions** : Scan TCP & UDP (`-sU`) avec mesure de latence RTT par port et corrélation CVE/CVSS.
+- **Audit Web & SSL/TLS** : En-têtes OWASP, cookies, fichiers exposés (`.env`, `.git`), audit SPF/DMARC et certificats SSL.
+- **Dashboard Interactif** : Génération de rapports HTML dynamiques (avec lien cartographique OSM), XML compatible Nmap, JSON et Markdown.
+- **Guide complet** : [Consulter SCANNER_GUIDE.md](SCANNER_GUIDE.md).
 
-**Lancement rapide :**
+### 2. ⚔️ HackerLab CTF Toolkit & Assistant IA (`hackerlab.py`)
+Boîte à outils multi-spécialités conçue pour exceller dans les compétitions **HackerLab / CTF** :
+- **🔐 Cryptographie** : Décodeur multi-formats (Base64, Hex, Binaire, Morse, ROT13), solveur César (25 décalages avec scoring linguistique), Vigenère, XOR bruteforce, identification de hashes, solveurs RSA mathématiques (`p, q, e -> d`, racine $e$, module commun, Fermat).
+- **🔬 Forensics & Stéganographie** : Analyseur de Magic Bytes / en-têtes corrompus, calcul d'entropie Shannon, découpage de fichiers embarqués (*Carving*), chasseur de flags CTF automatique (`flag{...}`, `HL{...}`).
+- **⚙️ Reverse Engineering** : Checksec ELF (NX, PIE, Canary, RELRO, Stripped), extracteur de symboles et fonctions clés, détection de packers (UPX).
+- **🌐 Sécurité Web & Code Audit** : Inspecteur & forgeur de JWT (`alg: none`), bibliothèque de payloads SSTI (Jinja2, Twig, ERB), regex d'audit de code vulnérable.
+- **📡 Analyse Réseau / PCAP** : Parseur PCAP autonome, extraction de requêtes DNS, requêtes HTTP, identifiants en clair et flags transitant sur le réseau.
+- **🤖 Assistant IA & Méthodologies** : Diagnostic d'énoncés de challenges, checklists méthodologiques pas-à-pas par catégorie, diagnostiqueur d'encodages inconnus et générateur de prompts optimisés pour LLM (Claude, ChatGPT, Ollama).
+- **Guide complet** : [Consulter HACKERLAB_GUIDE.md](HACKERLAB_GUIDE.md).
+
+---
+
+## 🚀 Démarrage Rapide
+
 ```bash
-# Scan complet d'un domaine (OSINT + Ports + WAF + CMS + DNS + SSL + Dashboard HTML)
-python3 scan.py -t example.com -A --html dashboard.html --xml scan_nmap.xml
+# 1. Lancer le mode interactif de la boîte à outils HackerLab
+python3 hackerlab.py
 
-# Géolocalisation et audit de sécurité DNS (SPF / DMARC)
-python3 scan.py -t mon-entreprise.com --geo --dns-audit --markdown audit_dns.md
+# 2. Déchiffrer un message ou identifier un hash en CTF
+python3 hackerlab.py crypto decode "SGFja2VyTGFiIENURg=="
+python3 hackerlab.py crypto hash-id "5d41402abc4b2a76b9719d911017c592"
 
-# Scan de services & vulnérabilités CVE avec timing rapide T4
-python3 scan.py -t 192.168.1.10 -p 21,22,80,443,3306 -sV -T4 --json scan.json
+# 3. Demander une analyse et méthodologie à l'Assistant IA
+python3 hackerlab.py ai analyze -t "RSA Strange Primes" -d "p et q sont très proches"
 
-# Scanner C natif avec mesure de latence RTT et export JSON
-cd c_scanner && make && ./port_scanner -t 127.0.0.1 -p top20 -b -o resultats.json
+# 4. Scanner une cible avec le scanner de sécurité complet
+python3 scan.py -t example.com -A --html rapport.html
 ```
 
 ---
@@ -844,8 +861,17 @@ cd c_scanner && make && ./port_scanner -t 127.0.0.1 -p top20 -b -o resultats.jso
 ```
 📂 cybersecurity-learning/
 ├── 📄 README.md                    ← ce fichier
+├── 📄 HACKERLAB_GUIDE.md           ← guide complet de la boîte à outils HackerLab & IA
 ├── 📄 SCANNER_GUIDE.md             ← guide complet des scanners de sécurité
-├── 📄 scan.py                      ← scanner de vulnérabilités & réseau Python
+├── 📄 hackerlab.py                 ← CLI unifiée HackerLab CTF Toolkit
+├── 📂 hackerlab_toolkit/           ← modules spécialisés (Crypto, Forensics, Reverse, Web, PCAP, IA)
+│   ├── 📄 crypto_tools.py
+│   ├── 📄 forensics_tools.py
+│   ├── 📄 reversing_tools.py
+│   ├── 📄 web_tools.py
+│   ├── 📄 pcap_tools.py
+│   └── 📄 ai_assistant.py
+├── 📄 scan.py                      ← scanner de vulnérabilités, OSINT & réseau Python
 ├── 📂 c_scanner/                   ← scanner TCP haute performance en C (pthread/sockets)
 │   ├── 📄 port_scanner.c
 │   └── 📄 Makefile
