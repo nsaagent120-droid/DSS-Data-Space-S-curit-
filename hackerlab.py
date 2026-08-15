@@ -37,6 +37,7 @@ try:
     from hackerlab_toolkit.osint_tools import OSINTToolkit
     from hackerlab_toolkit.wordlist_tools import WordlistMutator
     from hackerlab_toolkit.patch_audit_tools import SourceCodeAuditor
+    from hackerlab_toolkit.ghidra_cleaner import GhidraDecompilerCleaner
     from hackerlab_toolkit.ai_assistant import CTFAIAssistant
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -49,6 +50,7 @@ except ImportError:
     from hackerlab_toolkit.osint_tools import OSINTToolkit
     from hackerlab_toolkit.wordlist_tools import WordlistMutator
     from hackerlab_toolkit.patch_audit_tools import SourceCodeAuditor
+    from hackerlab_toolkit.ghidra_cleaner import GhidraDecompilerCleaner
     from hackerlab_toolkit.ai_assistant import CTFAIAssistant
 
 class Colors:
@@ -265,6 +267,38 @@ def handle_forensics(args):
                 print(f"  {Colors.GREEN}[+] Dimensions :{Colors.RESET} {res.get('width')} x {res.get('height')} px ({res.get('message')})\n")
 
 def handle_reverse(args):
+    if args.action == "clean-decompile":
+        raw_code = ""
+        if os.path.exists(args.target):
+            with open(args.target, "r", encoding="utf-8", errors="ignore") as f:
+                raw_code = f.read()
+        else:
+            raw_code = args.target
+
+        res = GhidraDecompilerCleaner.perfect_code(raw_code)
+        print(f"\n{Colors.CYAN}=== CODE GHIDRA PERFECTIONNÉ & RENDU LISIBLE ==={Colors.RESET}\n")
+        if res["renames"]:
+            print(f"  {Colors.GREEN}🏷️ Renommages sémantiques effectués :{Colors.RESET}")
+            for old_v, new_v in res["renames"].items():
+                print(f"     ↳ {Colors.YELLOW}{old_v:<14}{Colors.RESET} -> {Colors.BOLD}{new_v}{Colors.RESET}")
+            print()
+
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(res["cleaned_code"])
+            print(f"  {Colors.GREEN}[+] Code propre sauvegardé dans : {args.output}{Colors.RESET}\n")
+        else:
+            print(res["cleaned_code"])
+        return
+
+    elif args.action == "ghidra-headless":
+        headless_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ghidra_scripts", "headless_decompile.py")
+        cmd = [sys.executable, headless_script, args.binary]
+        if args.output: cmd.extend(["-o", args.output])
+        if args.ghidra_path: cmd.extend(["--ghidra-path", args.ghidra_path])
+        subprocess.run(cmd)
+        return
+
     filepath = args.file
     if not os.path.exists(filepath):
         print(f"{Colors.RED}[!] Fichier introuvable : {filepath}{Colors.RESET}")
@@ -363,16 +397,35 @@ def handle_reverse(args):
             print(f"  {Colors.GREEN}[+] Aucun mécanisme d'anti-débogage standard détecté.{Colors.RESET}")
         print()
 
-    elif args.action == "rop":
-        info = ELFAnalyzer.parse_elf_header(data)
-        base = 0x400000 if (info and info["class"] == "64-bit") else 0x8048000
-        gadgets = ELFAnalyzer.find_rop_gadgets(data, base_addr=base)
-        print(f"\n{Colors.CYAN}=== ROP GADGETS DISPONIBLES ({len(gadgets)} trouvés) : {os.path.basename(filepath)} ==={Colors.RESET}\n")
-        for g in gadgets[:25]:
-            print(f"  {Colors.GREEN}{g['vaddr']:<14}{Colors.RESET} : {Colors.BOLD}{g['gadget']:<20}{Colors.RESET} ({g['arch']})")
-        if len(gadgets) > 25:
-            print(f"\n  {Colors.DIM}... ({len(gadgets) - 25} autres gadgets omis){Colors.RESET}")
-        print()
+    elif args.action == "clean-decompile":
+        raw_code = ""
+        if os.path.exists(args.target):
+            with open(args.target, "r", encoding="utf-8", errors="ignore") as f:
+                raw_code = f.read()
+        else:
+            raw_code = args.target
+
+        res = GhidraDecompilerCleaner.perfect_code(raw_code)
+        print(f"\n{Colors.CYAN}=== CODE GHIDRA PERFECTIONNÉ & RENDU LISIBLE ==={Colors.RESET}\n")
+        if res["renames"]:
+            print(f"  {Colors.GREEN}🏷️ Renommages sémantiques effectués :{Colors.RESET}")
+            for old_v, new_v in res["renames"].items():
+                print(f"     ↳ {Colors.YELLOW}{old_v:<14}{Colors.RESET} -> {Colors.BOLD}{new_v}{Colors.RESET}")
+            print()
+
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(res["cleaned_code"])
+            print(f"  {Colors.GREEN}[+] Code propre sauvegardé dans : {args.output}{Colors.RESET}\n")
+        else:
+            print(res["cleaned_code"])
+
+    elif args.action == "ghidra-headless":
+        headless_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ghidra_scripts", "headless_decompile.py")
+        cmd = [sys.executable, headless_script, args.binary]
+        if args.output: cmd.extend(["-o", args.output])
+        if args.ghidra_path: cmd.extend(["--ghidra-path", args.ghidra_path])
+        subprocess.run(cmd)
 
     elif args.action == "audit":
         hashes = ELFAnalyzer.calculate_binary_hashes(data)
@@ -850,6 +903,15 @@ def main():
 
     p_rrop = rev_sub.add_parser("rop", help="Rechercher les ROP Gadgets fondamentaux (pop rdi, ret, syscall)")
     p_rrop.add_argument("file", help="Chemin du binaire")
+
+    p_rclean = rev_sub.add_parser("clean-decompile", help="Nettoyer, retyper et perfectionner du code décompilé par Ghidra")
+    p_rclean.add_argument("target", help="Fichier .c ou chaîne de code Ghidra brut")
+    p_rclean.add_argument("-o", "--output", help="Fichier de sortie C nettoyé")
+
+    p_rghidra = rev_sub.add_parser("ghidra-headless", help="Décompiler automatiquement un binaire via Ghidra Headless")
+    p_rghidra.add_argument("binary", help="Chemin du binaire à décompiler")
+    p_rghidra.add_argument("-o", "--output", help="Fichier C de sortie")
+    p_rghidra.add_argument("--ghidra-path", help="Chemin du dossier Ghidra")
 
     p_raudit = rev_sub.add_parser("audit", help="Auditer l'intégrité et détecter les anomalies de sections (RWX, Code Caves)")
     p_raudit.add_argument("file", help="Chemin du binaire")

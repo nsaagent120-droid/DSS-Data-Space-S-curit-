@@ -117,7 +117,13 @@ python3 hackerlab.py forensics flags capture_memoire.dmp
 
 ### ⚙️ 4. Reverse Engineering (`reverse`)
 ```bash
-# Checksec sur un binaire ELF (NX, PIE, Canary, RELRO, Stripped)
+# Nettoyer, retyper et perfectionner du code décompilé Ghidra (supprime casts, décode stack strings, renomme variables)
+python3 hackerlab.py reverse clean-decompile code_ghidra_brut.c -o code_propre.c
+
+# Décompiler automatiquement un binaire sans interface graphique (Ghidra Headless Analyzer)
+python3 hackerlab.py reverse ghidra-headless mon_binaire.elf -o decompiled_clean.c
+
+# Vérification checksec sur un binaire ELF (NX, PIE, Canary, RELRO, Stripped)
 python3 hackerlab.py reverse checksec challenge.elf
 
 # Détecteur de Packers & Compilateurs (style Detect It Easy / DIE)
